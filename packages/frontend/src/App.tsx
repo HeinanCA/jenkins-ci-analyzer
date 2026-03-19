@@ -15,22 +15,38 @@ import {
 } from "@mantine/core";
 
 const TERMINAL_LINES = [
-  { text: "$ docker compose up", color: "#34d399", delay: 0 },
-  { text: "  [+] postgres-16 .......... healthy", color: "#60a5fa", delay: 800 },
-  { text: "  [+] tig-api .............. running", color: "#60a5fa", delay: 1400 },
-  { text: "  [+] tig-worker ........... running", color: "#60a5fa", delay: 2000 },
-  { text: "", color: "", delay: 2600 },
-  { text: "$ tig crawl --instance production", color: "#34d399", delay: 3000 },
-  { text: "  Discovering jobs ......... 47 found", color: "#a78bfa", delay: 3800 },
-  { text: "  Syncing builds ........... 312 builds", color: "#a78bfa", delay: 4400 },
-  { text: "  Analyzing failures ....... 8 failed", color: "#f87171", delay: 5000 },
-  { text: "", color: "", delay: 5600 },
-  { text: "  BUILD #1416  Neteera-Backend", color: "#f87171", delay: 6000 },
-  { text: "    Classification: Code Issue", color: "#fb923c", delay: 6500 },
-  { text: '    Pattern: "Compilation Error"', color: "#fbbf24", delay: 7000 },
-  { text: "    Confidence: 95%", color: "#34d399", delay: 7500 },
-  { text: "", color: "", delay: 8000 },
-  { text: "  Ready. Your builds talk. We translate.", color: "#34d399", delay: 8500 },
+  { text: "$ pulsci init", color: "#34d399", delay: 0 },
+  { text: "", color: "", delay: 600 },
+  { text: "  Scaffolding project ...", color: "#60a5fa", delay: 800 },
+  { text: "  [=======           ]  35%  api", color: "#a78bfa", delay: 1500 },
+  {
+    text: "  [==============    ]  70%  worker",
+    color: "#a78bfa",
+    delay: 2200,
+  },
+  {
+    text: "  [====================] 100%  frontend",
+    color: "#a78bfa",
+    delay: 2900,
+  },
+  { text: "", color: "", delay: 3500 },
+  { text: "  Setting up analysis engine ...", color: "#60a5fa", delay: 3800 },
+  { text: "  12 failure patterns loaded", color: "#fbbf24", delay: 4500 },
+  { text: "  Health calculator ready", color: "#fbbf24", delay: 5000 },
+  { text: "  AI fallback configured", color: "#fbbf24", delay: 5500 },
+  { text: "", color: "", delay: 6000 },
+  { text: "  Wiring up the good stuff ...", color: "#60a5fa", delay: 6300 },
+  { text: "  [x] Auth", color: "#34d399", delay: 6800 },
+  { text: "  [x] Team scoping", color: "#34d399", delay: 7200 },
+  { text: "  [x] Jenkins proxy", color: "#34d399", delay: 7600 },
+  { text: "  [ ] DORA metrics", color: "#475569", delay: 8000 },
+  { text: "  [ ] Alerts", color: "#475569", delay: 8300 },
+  { text: "", color: "", delay: 8800 },
+  {
+    text: "  Building something great. Stay tuned.",
+    color: "#34d399",
+    delay: 9200,
+  },
 ];
 
 const CURSOR_BLINK = `
@@ -170,12 +186,7 @@ function LandingPage() {
       }}
     >
       <Container size="md">
-        <Group
-          align="center"
-          justify="center"
-          gap={60}
-          wrap="nowrap"
-        >
+        <Group align="center" justify="center" gap={60} wrap="nowrap">
           <Box visibleFrom="sm">
             <TerminalAnimation />
           </Box>

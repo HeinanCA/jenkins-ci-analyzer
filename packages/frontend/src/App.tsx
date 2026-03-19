@@ -196,10 +196,40 @@ function LandingPage() {
               Under Construction
             </Badge>
 
-            <Stack align="center" gap="xs">
-              <Text size="sm" c="dimmed" tt="uppercase" fw={600} ls={4}>
-                That Infrastructure Guy presents
+            <Stack align="center" gap="sm">
+              <Text
+                size="xs"
+                tt="uppercase"
+                fw={700}
+                ls={6}
+                ta="center"
+                style={{
+                  background:
+                    "linear-gradient(90deg, #475569, #94a3b8, #475569)",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                }}
+              >
+                That Infrastructure Guy
               </Text>
+              <Text
+                size="lg"
+                fw={300}
+                c="dimmed"
+                ta="center"
+                style={{ fontStyle: "italic", letterSpacing: 1 }}
+              >
+                presents
+              </Text>
+              <Box
+                my="xs"
+                style={{
+                  width: 60,
+                  height: 1,
+                  background:
+                    "linear-gradient(90deg, transparent, #60a5fa, transparent)",
+                }}
+              />
               <Title
                 order={1}
                 ta="center"

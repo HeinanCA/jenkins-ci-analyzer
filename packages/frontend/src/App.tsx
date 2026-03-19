@@ -191,12 +191,12 @@ function LandingPage() {
             <TerminalAnimation />
           </Box>
 
-          <Stack align="center" gap="xl" py="xl" style={{ flex: 1 }}>
-            <Badge size="lg" variant="light" color="blue" radius="sm">
+          <Stack align="center" gap="md" py="md" style={{ flex: 1 }}>
+            <Badge size="sm" variant="light" color="blue" radius="sm">
               Under Construction
             </Badge>
 
-            <Stack align="center" gap="sm">
+            <Stack align="center" gap={4}>
               <Text
                 size="xs"
                 tt="uppercase"
@@ -222,7 +222,7 @@ function LandingPage() {
                 presents
               </Text>
               <Box
-                my="xs"
+                my={4}
                 style={{
                   width: 60,
                   height: 1,
@@ -234,7 +234,7 @@ function LandingPage() {
                 order={1}
                 ta="center"
                 style={{
-                  fontSize: "clamp(2.5rem, 6vw, 4rem)",
+                  fontSize: "clamp(2rem, 5vw, 3.2rem)",
                   background:
                     "linear-gradient(135deg, #e2e8f0, #60a5fa, #a78bfa)",
                   WebkitBackgroundClip: "text",
@@ -249,7 +249,7 @@ function LandingPage() {
               </Text>
             </Stack>
 
-            <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md" mt="lg">
+            <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="xs" mt="sm">
               <Card
                 withBorder
                 radius="md"
@@ -309,37 +309,26 @@ function LandingPage() {
               </Card>
             </SimpleGrid>
 
-            <Group gap="lg" mt="md">
-              <Stack gap={2} align="center">
-                <Text size="xl" fw={700} c="blue">
-                  &lt; 2 min
-                </Text>
-                <Text size="xs" c="dimmed">
-                  to understand a failure
-                </Text>
-              </Stack>
-              <Stack gap={2} align="center">
-                <Text size="xl" fw={700} c="green">
+            <Group gap="md" mt="xs" justify="center">
+              <Text size="xs" c="dimmed">
+                <Text span c="blue" fw={700}>
+                  &lt;2 min
+                </Text>{" "}
+                to diagnose
+              </Text>
+              <Text size="xs" c="dimmed">
+                <Text span c="green" fw={700}>
                   0
-                </Text>
-                <Text size="xs" c="dimmed">
-                  DevOps pings needed
-                </Text>
-              </Stack>
-              <Stack gap={2} align="center">
-                <Text size="xl" fw={700} c="violet">
+                </Text>{" "}
+                DevOps pings
+              </Text>
+              <Text size="xs" c="dimmed">
+                <Text span c="violet" fw={700}>
                   12+
-                </Text>
-                <Text size="xs" c="dimmed">
-                  failure patterns detected
-                </Text>
-              </Stack>
+                </Text>{" "}
+                failure patterns
+              </Text>
             </Group>
-
-            <Text size="xs" c="dimmed" mt="xl">
-              Self-hosted CI/CD diagnostics for teams that want to ship, not
-              debug.
-            </Text>
           </Stack>
         </Group>
       </Container>

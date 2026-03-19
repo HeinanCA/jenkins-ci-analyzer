@@ -26,11 +26,9 @@ CMD ["pnpm", "--filter", "@tig/api", "worker"]
 # Build frontend
 FROM shared-build AS frontend-build
 COPY packages/frontend packages/frontend
-COPY index.html ./
-RUN pnpm --filter @tig/frontend build 2>/dev/null || echo "Frontend build skipped - not yet migrated"
+RUN cd packages/frontend && npx vite build
 
 # Frontend runtime
 FROM nginx:alpine AS frontend
 COPY deployment/nginx.conf /etc/nginx/conf.d/default.conf
-COPY --from=frontend-build /app/packages/frontend/dist /usr/share/nginx/html 2>/dev/null || true
-COPY --from=frontend-build /app/dist /usr/share/nginx/html 2>/dev/null || true
+COPY --from=frontend-build /app/packages/frontend/dist /usr/share/nginx/html

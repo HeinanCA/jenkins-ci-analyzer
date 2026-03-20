@@ -1,16 +1,18 @@
 import { run, type TaskList } from 'graphile-worker';
+import { crawlInstance } from './jobs/crawl-instance';
+import { scheduleCrawls } from './jobs/schedule-crawls';
 
-const connectionString = process.env['DATABASE_URL'] ?? 'postgres://tig:tig@localhost:5432/tig';
+const connectionString =
+  process.env['DATABASE_URL'] ?? 'postgres://tig:tig@localhost:5432/tig';
 
 const taskList: TaskList = {
-  crawl_instance: async (_payload, _helpers) => {
-    console.log('Crawl instance job - not yet implemented');
+  crawl_instance: crawlInstance,
+  schedule_crawls: scheduleCrawls,
+  analyze_build: async (_payload, helpers) => {
+    helpers.logger.info('Analyze build job — not yet implemented');
   },
-  analyze_build: async (_payload, _helpers) => {
-    console.log('Analyze build job - not yet implemented');
-  },
-  snapshot_health: async (_payload, _helpers) => {
-    console.log('Health snapshot job - not yet implemented');
+  snapshot_health: async (_payload, helpers) => {
+    helpers.logger.info('Health snapshot job — not yet implemented');
   },
 };
 
@@ -20,10 +22,10 @@ async function main() {
     concurrency: 5,
     noHandleSignals: false,
     taskList,
+    crontab: '* * * * * schedule_crawls',
   });
 
   console.log('TIG Worker running');
-
   await runner.promise;
 }
 

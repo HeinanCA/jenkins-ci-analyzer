@@ -1,21 +1,25 @@
-import type { FastifyInstance } from 'fastify';
-import { eq } from 'drizzle-orm';
-import { db } from '../db/connection';
-import { ciInstances } from '../db/schema';
+import type { FastifyInstance } from "fastify";
+import { eq } from "drizzle-orm";
+import { db } from "../db/connection";
+import { ciInstances } from "../db/schema";
+import { requireAuth } from "../middleware/auth";
 import {
   encryptCredentials,
   decryptCredentials,
   type EncryptedCredentials,
-} from '../services/credential-vault';
+} from "../services/credential-vault";
 import {
   testJenkinsConnection,
   jenkinsGet,
   jenkinsGetText,
-} from '../services/jenkins-client';
+} from "../services/jenkins-client";
 
 export async function instanceRoutes(app: FastifyInstance) {
+  // All instance routes require auth
+  app.addHook("preHandler", requireAuth);
+
   // List all instances
-  app.get('/api/v1/instances', async () => {
+  app.get("/api/v1/instances", async () => {
     const instances = await db
       .select({
         id: ciInstances.id,
@@ -33,7 +37,7 @@ export async function instanceRoutes(app: FastifyInstance) {
 
   // Get single instance
   app.get<{ Params: { id: string } }>(
-    '/api/v1/instances/:id',
+    "/api/v1/instances/:id",
     async (request, reply) => {
       const instance = await db
         .select({
@@ -53,7 +57,7 @@ export async function instanceRoutes(app: FastifyInstance) {
       if (instance.length === 0) {
         return reply.status(404).send({
           data: null,
-          error: 'Instance not found',
+          error: "Instance not found",
         });
       }
 
@@ -70,17 +74,18 @@ export async function instanceRoutes(app: FastifyInstance) {
       token: string;
       organizationId: string;
     };
-  }>('/api/v1/instances', async (request, reply) => {
+  }>("/api/v1/instances", async (request, reply) => {
     const { name, baseUrl, username, token, organizationId } = request.body;
 
     if (!name || !baseUrl || !username || !token || !organizationId) {
       return reply.status(400).send({
         data: null,
-        error: 'Missing required fields: name, baseUrl, username, token, organizationId',
+        error:
+          "Missing required fields: name, baseUrl, username, token, organizationId",
       });
     }
 
-    const normalizedUrl = baseUrl.replace(/\/$/, '');
+    const normalizedUrl = baseUrl.replace(/\/$/, "");
     const encrypted = encryptCredentials({ username, token });
 
     const [created] = await db
@@ -112,25 +117,25 @@ export async function instanceRoutes(app: FastifyInstance) {
       isActive?: boolean;
       crawlConfig?: Record<string, unknown>;
     };
-  }>('/api/v1/instances/:id', async (request, reply) => {
+  }>("/api/v1/instances/:id", async (request, reply) => {
     const { id } = request.params;
     const { name, baseUrl, username, token, isActive, crawlConfig } =
       request.body;
 
     const updates: Record<string, unknown> = {};
-    if (name !== undefined) updates['name'] = name;
-    if (baseUrl !== undefined) updates['baseUrl'] = baseUrl.replace(/\/$/, '');
-    if (isActive !== undefined) updates['isActive'] = isActive;
-    if (crawlConfig !== undefined) updates['crawlConfig'] = crawlConfig;
+    if (name !== undefined) updates["name"] = name;
+    if (baseUrl !== undefined) updates["baseUrl"] = baseUrl.replace(/\/$/, "");
+    if (isActive !== undefined) updates["isActive"] = isActive;
+    if (crawlConfig !== undefined) updates["crawlConfig"] = crawlConfig;
 
     if (username !== undefined && token !== undefined) {
-      updates['credentials'] = encryptCredentials({ username, token });
+      updates["credentials"] = encryptCredentials({ username, token });
     }
 
     if (Object.keys(updates).length === 0) {
       return reply.status(400).send({
         data: null,
-        error: 'No fields to update',
+        error: "No fields to update",
       });
     }
 
@@ -146,7 +151,9 @@ export async function instanceRoutes(app: FastifyInstance) {
       });
 
     if (!updated) {
-      return reply.status(404).send({ data: null, error: 'Instance not found' });
+      return reply
+        .status(404)
+        .send({ data: null, error: "Instance not found" });
     }
 
     return { data: updated, error: null };
@@ -154,7 +161,7 @@ export async function instanceRoutes(app: FastifyInstance) {
 
   // Delete instance
   app.delete<{ Params: { id: string } }>(
-    '/api/v1/instances/:id',
+    "/api/v1/instances/:id",
     async (request, reply) => {
       const [deleted] = await db
         .delete(ciInstances)
@@ -162,7 +169,9 @@ export async function instanceRoutes(app: FastifyInstance) {
         .returning({ id: ciInstances.id });
 
       if (!deleted) {
-        return reply.status(404).send({ data: null, error: 'Instance not found' });
+        return reply
+          .status(404)
+          .send({ data: null, error: "Instance not found" });
       }
 
       return { data: { id: deleted.id }, error: null };
@@ -171,7 +180,7 @@ export async function instanceRoutes(app: FastifyInstance) {
 
   // Test connection
   app.post<{ Params: { id: string } }>(
-    '/api/v1/instances/:id/test',
+    "/api/v1/instances/:id/test",
     async (request, reply) => {
       const [instance] = await db
         .select({
@@ -183,7 +192,9 @@ export async function instanceRoutes(app: FastifyInstance) {
         .limit(1);
 
       if (!instance) {
-        return reply.status(404).send({ data: null, error: 'Instance not found' });
+        return reply
+          .status(404)
+          .send({ data: null, error: "Instance not found" });
       }
 
       const credentials = decryptCredentials(
@@ -196,8 +207,8 @@ export async function instanceRoutes(app: FastifyInstance) {
   );
 
   // Proxy Jenkins API — JSON
-  app.get<{ Params: { id: string; '*': string } }>(
-    '/api/v1/instances/:id/proxy/*',
+  app.get<{ Params: { id: string; "*": string } }>(
+    "/api/v1/instances/:id/proxy/*",
     async (request, reply) => {
       const [instance] = await db
         .select({
@@ -209,28 +220,30 @@ export async function instanceRoutes(app: FastifyInstance) {
         .limit(1);
 
       if (!instance) {
-        return reply.status(404).send({ data: null, error: 'Instance not found' });
+        return reply
+          .status(404)
+          .send({ data: null, error: "Instance not found" });
       }
 
       const credentials = decryptCredentials(
         instance.credentials as EncryptedCredentials,
       );
-      const jenkinsPath = request.params['*'];
-      const queryString = request.url.includes('?')
-        ? request.url.slice(request.url.indexOf('?'))
-        : '';
+      const jenkinsPath = request.params["*"];
+      const queryString = request.url.includes("?")
+        ? request.url.slice(request.url.indexOf("?"))
+        : "";
       const url = `${instance.baseUrl}/${jenkinsPath}${queryString}`;
 
       try {
-        if (jenkinsPath.endsWith('consoleText')) {
+        if (jenkinsPath.endsWith("consoleText")) {
           const text = await jenkinsGetText(url, credentials);
-          return reply.type('text/plain').send(text);
+          return reply.type("text/plain").send(text);
         }
         const data = await jenkinsGet(url, credentials);
         return { data, error: null };
       } catch (error) {
         const message =
-          error instanceof Error ? error.message : 'Jenkins proxy error';
+          error instanceof Error ? error.message : "Jenkins proxy error";
         return reply.status(502).send({ data: null, error: message });
       }
     },

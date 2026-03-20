@@ -2,6 +2,7 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import { auth } from './auth';
 import { toNodeHandler } from 'better-auth/node';
+import { instanceRoutes } from './routes/instances';
 
 const PORT = Number(process.env['PORT'] ?? 3000);
 const HOST = process.env['HOST'] ?? '0.0.0.0';
@@ -10,12 +11,16 @@ const app = Fastify({ logger: true });
 
 await app.register(cors, { origin: true, credentials: true });
 
-// Mount better-auth on /api/auth/*
+// Auth
 const authHandler = toNodeHandler(auth);
 app.all('/api/auth/*', async (request, reply) => {
   await authHandler(request.raw, reply.raw);
 });
 
+// Routes
+await app.register(instanceRoutes);
+
+// Health
 app.get('/health', async () => ({
   status: 'ok',
   service: 'tig-api',

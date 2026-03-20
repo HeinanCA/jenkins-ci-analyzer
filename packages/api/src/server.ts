@@ -1,11 +1,12 @@
-import Fastify from 'fastify';
-import cors from '@fastify/cors';
-import { auth } from './auth';
-import { toNodeHandler } from 'better-auth/node';
-import { instanceRoutes } from './routes/instances';
+import Fastify from "fastify";
+import cors from "@fastify/cors";
+import { auth } from "./auth";
+import { toNodeHandler } from "better-auth/node";
+import { instanceRoutes } from "./routes/instances";
+import { jobRoutes } from "./routes/jobs";
 
-const PORT = Number(process.env['PORT'] ?? 3000);
-const HOST = process.env['HOST'] ?? '0.0.0.0';
+const PORT = Number(process.env["PORT"] ?? 3000);
+const HOST = process.env["HOST"] ?? "0.0.0.0";
 
 const app = Fastify({ logger: true });
 
@@ -13,24 +14,25 @@ await app.register(cors, { origin: true, credentials: true });
 
 // Auth
 const authHandler = toNodeHandler(auth);
-app.all('/api/auth/*', async (request, reply) => {
+app.all("/api/auth/*", async (request, reply) => {
   await authHandler(request.raw, reply.raw);
 });
 
 // Routes
 await app.register(instanceRoutes);
+await app.register(jobRoutes);
 
 // Health
-app.get('/health', async () => ({
-  status: 'ok',
-  service: 'tig-api',
+app.get("/health", async () => ({
+  status: "ok",
+  service: "tig-api",
   timestamp: new Date().toISOString(),
 }));
 
-app.get('/api/v1/status', async () => ({
+app.get("/api/v1/status", async () => ({
   data: {
-    version: '0.1.0',
-    service: 'tig-api',
+    version: "0.1.0",
+    service: "tig-api",
   },
   error: null,
 }));

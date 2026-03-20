@@ -1,15 +1,15 @@
-import type { Task } from 'graphile-worker';
-import { eq } from 'drizzle-orm';
-import { db } from '../db/connection';
-import { ciInstances, jobs } from '../db/schema';
+import type { Task } from "graphile-worker";
+import { eq } from "drizzle-orm";
+import { db } from "../db/connection";
+import { ciInstances, jobs } from "../db/schema";
 import {
   decryptCredentials,
   type EncryptedCredentials,
-} from '../services/credential-vault';
+} from "../services/credential-vault";
 import {
   crawlJenkinsInstance,
   type CrawlConfig,
-} from '../services/jenkins-crawler';
+} from "../services/jenkins-crawler";
 
 export const crawlInstance: Task = async (payload, helpers) => {
   const { instanceId } = payload as { instanceId: string };
@@ -82,5 +82,12 @@ export const crawlInstance: Task = async (payload, helpers) => {
 
   helpers.logger.info(
     `Crawl complete for instance ${instanceId}: ${discovered.length} jobs synced`,
+  );
+
+  // Chain: sync builds after crawl
+  await helpers.addJob(
+    "sync_builds",
+    { instanceId },
+    { jobKey: `sync:${instanceId}`, jobKeyMode: "replace" },
   );
 };

@@ -14,6 +14,8 @@ export async function requireAuth(
     return reply.status(401).send({
       data: null,
       error: "Ah ah ah, you didn't say the magic word!",
+      nedry:
+        "https://media.tenor.com/2GJlHNr2n1YAAAAC/you-didnt-say-the-magic-word-ah-ah.gif",
     });
   }
 

@@ -13,9 +13,11 @@ const app = Fastify({ logger: true });
 
 await app.register(cors, { origin: true, credentials: true });
 
-// Auth
+// Auth — better-auth writes directly to the raw response,
+// so we must tell Fastify not to manage the reply lifecycle
 const authHandler = toNodeHandler(auth);
 app.all("/api/auth/*", async (request, reply) => {
+  reply.hijack();
   await authHandler(request.raw, reply.raw);
 });
 

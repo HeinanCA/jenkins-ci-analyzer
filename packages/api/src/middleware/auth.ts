@@ -13,7 +13,7 @@ export async function requireAuth(
   if (!session) {
     return reply.status(401).send({
       data: null,
-      error: "Authentication required",
+      error: "Ah ah ah, you didn't say the magic word!",
     });
   }
 

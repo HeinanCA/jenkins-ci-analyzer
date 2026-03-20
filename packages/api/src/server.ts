@@ -2,6 +2,7 @@ import Fastify from "fastify";
 import cors from "@fastify/cors";
 import { auth } from "./auth";
 import { toNodeHandler } from "better-auth/node";
+import { organizationRoutes } from "./routes/organizations";
 import { instanceRoutes } from "./routes/instances";
 import { jobRoutes } from "./routes/jobs";
 
@@ -19,6 +20,7 @@ app.all("/api/auth/*", async (request, reply) => {
 });
 
 // Routes
+await app.register(organizationRoutes);
 await app.register(instanceRoutes);
 await app.register(jobRoutes);
 

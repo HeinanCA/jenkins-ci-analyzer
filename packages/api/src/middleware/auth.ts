@@ -1,6 +1,6 @@
-import type { FastifyRequest, FastifyReply } from 'fastify';
-import { auth } from '../auth';
-import { fromNodeHeaders } from 'better-auth/node';
+import type { FastifyRequest, FastifyReply } from "fastify";
+import { auth } from "../auth";
+import { fromNodeHeaders } from "better-auth/node";
 
 export async function requireAuth(
   request: FastifyRequest,
@@ -13,14 +13,14 @@ export async function requireAuth(
   if (!session) {
     return reply.status(401).send({
       data: null,
-      error: 'Authentication required',
+      error: "Ah ah ah, you didn't say the magic word!",
     });
   }
 
   request.tigSession = session;
 }
 
-declare module 'fastify' {
+declare module "fastify" {
   interface FastifyRequest {
     tigSession?: {
       session: {

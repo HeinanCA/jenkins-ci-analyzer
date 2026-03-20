@@ -1,25 +1,39 @@
-import Fastify from "fastify";
-import cors from "@fastify/cors";
-import { auth } from "./auth";
-import { toNodeHandler } from "better-auth/node";
-import { organizationRoutes } from "./routes/organizations";
-import { instanceRoutes } from "./routes/instances";
-import { jobRoutes } from "./routes/jobs";
+import Fastify from 'fastify';
+import cors from '@fastify/cors';
+import { auth } from './auth';
+import { toNodeHandler } from 'better-auth/node';
+import { organizationRoutes } from './routes/organizations';
+import { instanceRoutes } from './routes/instances';
+import { jobRoutes } from './routes/jobs';
+import http from 'node:http';
 
-const PORT = Number(process.env["PORT"] ?? 3000);
-const HOST = process.env["HOST"] ?? "0.0.0.0";
+const PORT = Number(process.env['PORT'] ?? 3000);
+const HOST = process.env['HOST'] ?? '0.0.0.0';
 
-const app = Fastify({ logger: true });
+const app = Fastify({ logger: true, serverFactory: (handler) => {
+  const authHandler = toNodeHandler(auth);
+
+  return http.createServer((req, res) => {
+    // Route /api/auth/* to better-auth directly (bypasses Fastify)
+    if (req.url?.startsWith('/api/auth')) {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+      if (req.method === 'OPTIONS') {
+        res.writeHead(204);
+        res.end();
+        return;
+      }
+      authHandler(req, res);
+      return;
+    }
+    // Everything else goes to Fastify
+    handler(req, res);
+  });
+}});
 
 await app.register(cors, { origin: true, credentials: true });
-
-// Auth — better-auth writes directly to the raw response,
-// so we must tell Fastify not to manage the reply lifecycle
-const authHandler = toNodeHandler(auth);
-app.all("/api/auth/*", async (request, reply) => {
-  reply.hijack();
-  await authHandler(request.raw, reply.raw);
-});
 
 // Routes
 await app.register(organizationRoutes);
@@ -27,16 +41,16 @@ await app.register(instanceRoutes);
 await app.register(jobRoutes);
 
 // Health
-app.get("/health", async () => ({
-  status: "ok",
-  service: "tig-api",
+app.get('/health', async () => ({
+  status: 'ok',
+  service: 'tig-api',
   timestamp: new Date().toISOString(),
 }));
 
-app.get("/api/v1/status", async () => ({
+app.get('/api/v1/status', async () => ({
   data: {
-    version: "0.1.0",
-    service: "tig-api",
+    version: '0.1.0',
+    service: 'tig-api',
   },
   error: null,
 }));

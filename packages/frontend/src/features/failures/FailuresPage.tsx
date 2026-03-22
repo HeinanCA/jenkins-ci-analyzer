@@ -14,15 +14,6 @@ import {
 import { tigDashboard } from '../../api/tig-client';
 import { useAuthStore } from '../../store/auth-store';
 
-interface MatchEntry {
-  readonly patternName: string;
-  readonly category: string;
-  readonly severity: string;
-  readonly matchedLine: string;
-  readonly description: string;
-  readonly remediationSteps: readonly string[];
-}
-
 const CARD_STYLE = {
   backgroundColor: 'rgba(255, 255, 255, 0.03)',
   borderColor: 'rgba(255, 255, 255, 0.08)',
@@ -77,8 +68,12 @@ export function FailuresPage() {
           }}
         >
           {failures.map((f) => {
-            const matches = (f.matches ?? []) as MatchEntry[];
+            const matches = Array.isArray(f.matches) ? f.matches as Record<string, unknown>[] : [];
             const primary = matches[0];
+            const aiSummary = (f as Record<string, unknown>).aiSummary as string | undefined;
+            const aiRootCause = (f as Record<string, unknown>).aiRootCause as string | undefined;
+            const aiFixes = (f as Record<string, unknown>).aiSuggestedFixes as Record<string, unknown> | undefined;
+            const hasAi = !!aiSummary;
 
             return (
               <Accordion.Item key={f.buildId} value={f.buildId}>
@@ -96,25 +91,62 @@ export function FailuresPage() {
                           {f.classification === 'infrastructure' ? 'Infra' : 'Code'}
                         </Badge>
                       )}
-                      {primary && (
-                        <Badge size="xs" variant="light" color="blue">{primary.patternName}</Badge>
+                      {hasAi && (
+                        <Badge size="xs" variant="light" color="violet">AI</Badge>
                       )}
                     </Group>
                   </Group>
                 </Accordion.Control>
                 <Accordion.Panel>
-                  {primary ? (
+                  {hasAi ? (
                     <Stack gap="sm">
-                      <Text size="sm" c="gray.3">{primary.description}</Text>
-                      <Code block style={{ backgroundColor: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.06)', fontSize: 12 }}>
-                        {primary.matchedLine}
-                      </Code>
-                      <Text size="sm" fw={600} c="gray.2">What to do:</Text>
-                      <List size="sm" type="ordered" styles={{ item: { color: '#94a3b8' } }}>
-                        {primary.remediationSteps.map((step, i) => (
-                          <List.Item key={i}>{step}</List.Item>
-                        ))}
-                      </List>
+                      <Text size="sm" c="gray.2" fw={500}>{aiSummary}</Text>
+                      {aiRootCause && (
+                        <Code block style={{ backgroundColor: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.06)', fontSize: 12 }}>
+                          {aiRootCause}
+                        </Code>
+                      )}
+                      {aiFixes?.failingTest && (
+                        <Text size="xs" c="dimmed">
+                          Test: <Text span c="gray.3" fw={500}>{String(aiFixes.failingTest)}</Text>
+                        </Text>
+                      )}
+                      {aiFixes?.assertion && (
+                        <Text size="xs" c="dimmed">
+                          Assertion: <Text span c="gray.3">{String(aiFixes.assertion)}</Text>
+                        </Text>
+                      )}
+                      {aiFixes?.filePath && (
+                        <Text size="xs" c="dimmed">
+                          File: <Text span c="gray.3">{String(aiFixes.filePath)}{aiFixes.lineNumber ? `:${aiFixes.lineNumber}` : ''}</Text>
+                        </Text>
+                      )}
+                      {Array.isArray(aiFixes?.fixes) && (aiFixes.fixes as string[]).length > 0 && (
+                        <>
+                          <Text size="sm" fw={600} c="gray.2">What to do:</Text>
+                          <List size="sm" type="ordered" styles={{ item: { color: '#94a3b8' } }}>
+                            {(aiFixes.fixes as string[]).map((step, i) => (
+                              <List.Item key={i}>{step}</List.Item>
+                            ))}
+                          </List>
+                        </>
+                      )}
+                    </Stack>
+                  ) : primary ? (
+                    <Stack gap="sm">
+                      <Text size="sm" c="gray.3">{String(primary.description ?? 'Pattern matched')}</Text>
+                      {primary.matchedLine && (
+                        <Code block style={{ backgroundColor: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.06)', fontSize: 12 }}>
+                          {String(primary.matchedLine)}
+                        </Code>
+                      )}
+                      {Array.isArray(primary.remediationSteps) && (
+                        <List size="sm" type="ordered" styles={{ item: { color: '#94a3b8' } }}>
+                          {(primary.remediationSteps as string[]).map((step, i) => (
+                            <List.Item key={i}>{step}</List.Item>
+                          ))}
+                        </List>
+                      )}
                     </Stack>
                   ) : (
                     <Text size="sm" c="dimmed">No analysis available yet.</Text>

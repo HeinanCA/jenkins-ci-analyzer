@@ -54,6 +54,9 @@ export async function dashboardRoutes(app: FastifyInstance) {
         classification: buildAnalyses.classification,
         confidence: buildAnalyses.confidence,
         matches: buildAnalyses.matches,
+        aiSummary: buildAnalyses.aiSummary,
+        aiRootCause: buildAnalyses.aiRootCause,
+        aiSuggestedFixes: buildAnalyses.aiSuggestedFixes,
       })
       .from(builds)
       .innerJoin(jobs, eq(jobs.id, builds.jobId))

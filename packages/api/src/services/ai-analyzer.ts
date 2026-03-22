@@ -1,5 +1,5 @@
-import Anthropic from '@anthropic-ai/sdk';
-import { AnthropicBedrock } from '@anthropic-ai/bedrock-sdk';
+import Anthropic from "@anthropic-ai/sdk";
+import { AnthropicBedrock } from "@anthropic-ai/bedrock-sdk";
 
 const MAX_LOG_CHARS = 50_000;
 
@@ -34,7 +34,7 @@ Rules:
 
 export interface AiAnalysisResult {
   readonly summary: string;
-  readonly classification: 'code' | 'infrastructure';
+  readonly classification: "code" | "infrastructure";
   readonly rootCause: string;
   readonly failingTest: string | null;
   readonly assertion: string | null;
@@ -47,14 +47,22 @@ export interface AiAnalysisResult {
 }
 
 function createClient(): Anthropic | AnthropicBedrock | null {
-  // AWS Bedrock — uses AWS credentials from environment (IAM role, env vars, or ~/.aws)
-  const awsRegion = process.env['AWS_REGION'] ?? process.env['AWS_DEFAULT_REGION'];
-  if (awsRegion && !process.env['ANTHROPIC_API_KEY']) {
+  // Option 1: AWS Bedrock API key (simplest)
+  const bedrockApiKey = process.env["AWS_BEARER_TOKEN_BEDROCK"];
+  if (bedrockApiKey) {
+    const awsRegion = process.env["AWS_REGION"] ?? "us-east-1";
     return new AnthropicBedrock({ awsRegion });
   }
 
-  // Direct Anthropic API
-  const apiKey = process.env['ANTHROPIC_API_KEY'];
+  // Option 2: AWS Bedrock with IAM credentials
+  const awsRegion =
+    process.env["AWS_REGION"] ?? process.env["AWS_DEFAULT_REGION"];
+  if (awsRegion && process.env["AWS_ACCESS_KEY_ID"]) {
+    return new AnthropicBedrock({ awsRegion });
+  }
+
+  // Option 3: Direct Anthropic API key
+  const apiKey = process.env["ANTHROPIC_API_KEY"];
   if (apiKey) {
     return new Anthropic({ apiKey });
   }
@@ -64,10 +72,13 @@ function createClient(): Anthropic | AnthropicBedrock | null {
 
 function getModelId(): string {
   // Bedrock uses a different model ID format
-  if (process.env['AWS_REGION'] && !process.env['ANTHROPIC_API_KEY']) {
-    return process.env['BEDROCK_MODEL_ID'] ?? 'anthropic.claude-haiku-4-5-20251001-v1:0';
+  if (process.env["AWS_REGION"] && !process.env["ANTHROPIC_API_KEY"]) {
+    return (
+      process.env["BEDROCK_MODEL_ID"] ??
+      "anthropic.claude-haiku-4-5-20251001-v1:0"
+    );
   }
-  return 'claude-haiku-4-5-20251001';
+  return "claude-haiku-4-5-20251001";
 }
 
 export async function analyzeWithAi(
@@ -92,7 +103,7 @@ export async function analyzeWithAi(
     `Build: #${buildNumber}`,
     regexClassification
       ? `Regex pre-classification: ${regexClassification}`
-      : '',
+      : "",
     ``,
     `Build log:`,
     `\`\`\``,
@@ -100,30 +111,30 @@ export async function analyzeWithAi(
     `\`\`\``,
   ]
     .filter(Boolean)
-    .join('\n');
+    .join("\n");
 
   try {
     const response = await client.messages.create({
       model: getModelId(),
       max_tokens: 1024,
       system: SYSTEM_PROMPT,
-      messages: [{ role: 'user', content: userMessage }],
+      messages: [{ role: "user", content: userMessage }],
     });
 
     const text =
-      response.content[0].type === 'text' ? response.content[0].text : '';
+      response.content[0].type === "text" ? response.content[0].text : "";
 
     const jsonStr = text
-      .replace(/```json\n?/g, '')
-      .replace(/```\n?/g, '')
+      .replace(/```json\n?/g, "")
+      .replace(/```\n?/g, "")
       .trim();
 
     const parsed = JSON.parse(jsonStr) as AiAnalysisResult;
     return parsed;
   } catch (error) {
     console.error(
-      'AI analysis failed:',
-      error instanceof Error ? error.message : 'unknown',
+      "AI analysis failed:",
+      error instanceof Error ? error.message : "unknown",
     );
     return null;
   }

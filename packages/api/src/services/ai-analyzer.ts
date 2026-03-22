@@ -1,9 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { AnthropicBedrock } from "@anthropic-ai/bedrock-sdk";
-
-const MAX_LOG_CHARS = 120_000;
-const HEAD_CHARS = 20_000;
-const TAIL_CHARS = 100_000;
+import { filterLogForAnalysis } from "./log-filter";
 
 // Haiku pricing per 1M tokens
 const INPUT_COST_PER_MTOK = 0.8;
@@ -62,9 +59,12 @@ export interface AiUsage {
   readonly costUsd: number;
 }
 
+export type { LogStats } from "./log-filter";
+
 export interface AiAnalysisResponse {
   readonly result: AiAnalysisResult | null;
   readonly usage: AiUsage | null;
+  readonly logStats: import("./log-filter").LogStats | null;
 }
 
 function createClient(): Anthropic | AnthropicBedrock | null {
@@ -132,15 +132,13 @@ export async function analyzeWithAi(
   buildNumber: number,
   regexClassification?: string,
 ): Promise<AiAnalysisResponse> {
+  // Strip known noise — cheaper AI + user-facing insight
+  const { text: filteredLog, stats: logStats } = filterLogForAnalysis(log);
+
   const client = createClient();
   if (!client) {
-    return { result: null, usage: null };
+    return { result: null, usage: null, logStats };
   }
-
-  const truncatedLog =
-    log.length > MAX_LOG_CHARS
-      ? `${log.slice(0, HEAD_CHARS)}\n\n[... ${log.length - HEAD_CHARS - TAIL_CHARS} characters truncated — test failures may appear above, build errors below ...]\n\n${log.slice(-TAIL_CHARS)}`
-      : log;
 
   const buildContext = detectBuildContext(jobName);
 
@@ -155,7 +153,7 @@ export async function analyzeWithAi(
     ``,
     `Build log:`,
     `\`\`\``,
-    truncatedLog,
+    filteredLog,
     `\`\`\``,
   ]
     .filter(Boolean)
@@ -185,12 +183,13 @@ export async function analyzeWithAi(
     return {
       result: parsed,
       usage: { inputTokens, outputTokens, costUsd },
+      logStats,
     };
   } catch (error) {
     console.error(
       "AI analysis failed:",
       error instanceof Error ? error.message : "unknown",
     );
-    return { result: null, usage: null };
+    return { result: null, usage: null, logStats };
   }
 }

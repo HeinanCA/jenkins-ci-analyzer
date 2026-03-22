@@ -221,6 +221,8 @@ export const buildAnalyses = pgTable("build_analyses", {
   aiInputTokens: integer("ai_input_tokens"),
   aiOutputTokens: integer("ai_output_tokens"),
   aiCostUsd: real("ai_cost_usd"),
+  logNoisePercent: integer("log_noise_percent"),
+  logTopNoise: text("log_top_noise"),
   analyzedAt: timestamp("analyzed_at", { withTimezone: true })
     .defaultNow()
     .notNull(),

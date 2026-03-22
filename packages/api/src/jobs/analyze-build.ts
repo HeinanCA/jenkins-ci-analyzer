@@ -117,6 +117,7 @@ export const analyzeBuild: Task = async (payload, helpers) => {
 
   const aiResult = aiResponse.result;
   const aiUsage = aiResponse.usage;
+  const logStats = aiResponse.logStats;
 
   // Store combined result
   const classification =
@@ -154,6 +155,8 @@ export const analyzeBuild: Task = async (payload, helpers) => {
     aiInputTokens: aiUsage?.inputTokens ?? null,
     aiOutputTokens: aiUsage?.outputTokens ?? null,
     aiCostUsd: aiUsage?.costUsd ?? null,
+    logNoisePercent: logStats?.noisePercent ?? null,
+    logTopNoise: logStats?.topNoiseCategory ?? null,
   });
 
   await db

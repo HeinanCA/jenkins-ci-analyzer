@@ -98,7 +98,7 @@ export const analyzeBuild: Task = async (payload, helpers) => {
     log = await jenkinsGetText(logUrl, credentials);
   } catch (error) {
     helpers.logger.error(
-      `Failed to fetch log for build ${buildId}: ${error instanceof Error ? error.message : "unknown"}`,
+      `Failed to fetch log for build ${buildId} (${logUrl}): ${error instanceof Error ? error.message : "unknown"}`,
     );
     return;
   }

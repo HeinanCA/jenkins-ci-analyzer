@@ -1,7 +1,9 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { AnthropicBedrock } from "@anthropic-ai/bedrock-sdk";
 
-const MAX_LOG_CHARS = 50_000;
+const MAX_LOG_CHARS = 120_000;
+const HEAD_CHARS = 20_000;
+const TAIL_CHARS = 100_000;
 
 // Haiku pricing per 1M tokens
 const INPUT_COST_PER_MTOK = 0.8;
@@ -137,7 +139,7 @@ export async function analyzeWithAi(
 
   const truncatedLog =
     log.length > MAX_LOG_CHARS
-      ? `[... ${log.length - MAX_LOG_CHARS} characters truncated ...]\n${log.slice(-MAX_LOG_CHARS)}`
+      ? `${log.slice(0, HEAD_CHARS)}\n\n[... ${log.length - HEAD_CHARS - TAIL_CHARS} characters truncated — test failures may appear above, build errors below ...]\n\n${log.slice(-TAIL_CHARS)}`
       : log;
 
   const buildContext = detectBuildContext(jobName);

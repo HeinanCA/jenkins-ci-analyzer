@@ -8,8 +8,13 @@ import {
 } from '../services/credential-vault';
 import { jenkinsGetText } from '../services/jenkins-client';
 import { analyzeLog, classifyFailure, FAILURE_PATTERNS } from '@tig/shared';
+import { analyzeWithAi } from '../services/ai-analyzer';
 
-function jobPathToConsoleUrl(baseUrl: string, fullPath: string, buildNumber: number): string {
+function jobPathToConsoleUrl(
+  baseUrl: string,
+  fullPath: string,
+  buildNumber: number,
+): string {
   const segments = fullPath.split('/');
   const jenkinsPath = segments
     .map((s) => `job/${encodeURIComponent(s)}`)
@@ -23,7 +28,6 @@ export const analyzeBuild: Task = async (payload, helpers) => {
     instanceId: string;
   };
 
-  // Check if already analyzed
   const [existing] = await db
     .select({ id: buildAnalyses.id })
     .from(buildAnalyses)
@@ -35,7 +39,6 @@ export const analyzeBuild: Task = async (payload, helpers) => {
     return;
   }
 
-  // Get build + job + instance info
   const [build] = await db
     .select({
       id: builds.id,
@@ -52,7 +55,7 @@ export const analyzeBuild: Task = async (payload, helpers) => {
   }
 
   const [job] = await db
-    .select({ fullPath: jobs.fullPath, ciInstanceId: jobs.ciInstanceId })
+    .select({ fullPath: jobs.fullPath, name: jobs.name, ciInstanceId: jobs.ciInstanceId })
     .from(jobs)
     .where(eq(jobs.id, build.jobId))
     .limit(1);
@@ -76,7 +79,7 @@ export const analyzeBuild: Task = async (payload, helpers) => {
     return;
   }
 
-  // Fetch log from Jenkins
+  // Fetch log
   const credentials = decryptCredentials(
     instance.credentials as EncryptedCredentials,
   );
@@ -96,15 +99,26 @@ export const analyzeBuild: Task = async (payload, helpers) => {
     return;
   }
 
-  // Run pattern matcher + classifier from @tig/shared
+  // Layer 1: Fast regex classification
   const matches = analyzeLog(log, FAILURE_PATTERNS);
-  const classification = classifyFailure(matches);
+  const regexClassification = classifyFailure(matches);
 
-  // Store analysis
+  // Layer 2: AI analysis — the real intelligence
+  const aiResult = await analyzeWithAi(
+    log,
+    job.fullPath,
+    build.buildNumber,
+    regexClassification.classification,
+  );
+
+  // Store combined result
+  const classification = aiResult?.classification ?? regexClassification.classification;
+  const confidence = aiResult?.confidence ?? regexClassification.confidence;
+
   await db.insert(buildAnalyses).values({
     buildId,
-    classification: classification.classification,
-    confidence: classification.confidence,
+    classification,
+    confidence,
     matches: matches.map((m) => ({
       patternId: m.pattern.id,
       patternName: m.pattern.name,
@@ -113,21 +127,36 @@ export const analyzeBuild: Task = async (payload, helpers) => {
       matchedLine: m.matchedLine,
       lineNumber: m.lineNumber,
       confidence: m.confidence,
-      description: m.pattern.description,
-      remediationSteps: m.pattern.remediationSteps,
+      context: m.context,
     })),
-    aiSkippedReason: classification.confidence >= 0.7
-      ? 'high_confidence_match'
+    aiSummary: aiResult?.summary ?? null,
+    aiRootCause: aiResult?.rootCause ?? null,
+    aiSuggestedFixes: aiResult
+      ? {
+          fixes: aiResult.suggestedFixes,
+          failingTest: aiResult.failingTest,
+          assertion: aiResult.assertion,
+          filePath: aiResult.filePath,
+          lineNumber: aiResult.lineNumber,
+          exceptionType: aiResult.exceptionType,
+          stackTrace: aiResult.stackTrace,
+        }
       : null,
+    aiSkippedReason: aiResult ? null : (process.env['ANTHROPIC_API_KEY'] ? null : 'disabled'),
   });
 
-  // Update build log_fetched flag
   await db
     .update(builds)
     .set({ logFetched: true, logSizeBytes: log.length })
     .where(eq(builds.id, buildId));
 
-  helpers.logger.info(
-    `Analyzed build ${buildId}: ${classification.classification} (${Math.round(classification.confidence * 100)}% confidence, ${matches.length} pattern(s) matched)`,
-  );
+  if (aiResult) {
+    helpers.logger.info(
+      `Analyzed build ${buildId} [AI]: ${aiResult.summary}`,
+    );
+  } else {
+    helpers.logger.info(
+      `Analyzed build ${buildId} [regex-only]: ${regexClassification.classification} (${Math.round(regexClassification.confidence * 100)}%)`,
+    );
+  }
 };

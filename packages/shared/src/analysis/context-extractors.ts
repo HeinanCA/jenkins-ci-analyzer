@@ -1,4 +1,4 @@
-import type { ContextExtractor, ExtractedContext } from "./types";
+import type { ContextExtractor, ExtractedContext } from './types';
 
 function scanNearby(
   lines: readonly string[],
@@ -21,16 +21,15 @@ function extractAppStackFrames(
     i++
   ) {
     const line = lines[i].trim();
-    if (!line.startsWith("at ") && !line.startsWith("at\t")) break;
-    // Skip framework internals
+    if (!line.startsWith('at ') && !line.startsWith('\tat')) break;
     if (
-      line.includes("java.lang.reflect") ||
-      line.includes("sun.reflect") ||
-      line.includes("org.junit") ||
-      line.includes("org.mockito") ||
-      line.includes("org.springframework.test") ||
-      line.includes("org.apache.maven") ||
-      line.includes("org.gradle")
+      line.includes('java.lang.reflect') ||
+      line.includes('sun.reflect') ||
+      line.includes('org.junit') ||
+      line.includes('org.mockito') ||
+      line.includes('org.springframework.test') ||
+      line.includes('org.apache.maven') ||
+      line.includes('org.gradle')
     )
       continue;
     frames.push(line);
@@ -39,79 +38,137 @@ function extractAppStackFrames(
   return frames;
 }
 
-// ─── Java/JUnit/Maven ───────────────────────────────────────
+// ─── Java/JUnit/Maven (real Surefire format) ────────────────
 
 export const extractJunitContext: ContextExtractor = (lines, matchIndex) => {
   const ctx: Record<string, unknown> = {};
-  const nearby = scanNearby(lines, matchIndex, 100);
 
-  // Find test class and method: "testMethodName(com.example.MyTest)"
-  const testMethodMatch = nearby.find(
-    (l) =>
-      /\w+\([\w.]+\)/.test(l) &&
-      (l.includes("FAILED") || l.includes("<<< FAIL")),
-  );
-  if (testMethodMatch) {
-    const m = testMethodMatch.match(/(\w+)\(([\w.]+)\)/);
+  // Scan a wide range — Surefire summary is often far from the matched line
+  const scanStart = Math.max(0, matchIndex - 300);
+  const scanEnd = Math.min(lines.length, matchIndex + 100);
+  const nearby = lines.slice(scanStart, scanEnd);
+
+  // 1. Surefire compact failure summary:
+  //    [ERROR]   ClassName.methodName:lineNumber message ==> expected: <X> but was: <Y>
+  const surefireSummaries: string[] = [];
+  for (const line of nearby) {
+    const m = line.match(
+      /\[ERROR\]\s{2,}(\w+)\.(\w+):(\d+)\s+(.*)/,
+    );
     if (m) {
-      ctx.testName = m[1];
-      ctx.testClass = m[2];
+      surefireSummaries.push(line);
+      if (!ctx.testClass) {
+        ctx.testClass = m[1];
+        ctx.testName = m[2];
+        ctx.fileLine = Number(m[3]);
+        const message = m[4];
+        ctx.assertion = message;
+
+        // Extract expected/actual from "==> expected: <X> but was: <Y>"
+        const evMatch = message.match(
+          /expected:\s*<(.+?)>\s*but was:\s*<(.+?)>/,
+        );
+        if (evMatch) {
+          ctx.expected = evMatch[1];
+          ctx.actual = evMatch[2];
+        }
+
+        // Extract exception from "» RuntimeException message"
+        const exMatch = message.match(/[»›]\s*(\w+(?:Exception|Error))\s*(.*)/);
+        if (exMatch) {
+          ctx.exceptionType = exMatch[1];
+          ctx.rootCause = exMatch[2].trim() || exMatch[1];
+        }
+      }
     }
   }
 
-  // Find assertion: "expected:<X> but was:<Y>" or "Expected: X / Actual: Y"
-  const assertionLine = nearby.find(
-    (l) =>
-      /expected:?\s*<.*>\s*but\s*was:?\s*<.*>/i.test(l) ||
-      /Expected\s*:.*\n?.*Actual\s*:/i.test(l) ||
-      /AssertionError|AssertError/i.test(l),
-  );
-  if (assertionLine) {
-    ctx.assertion = assertionLine.trim();
-    const expectedMatch = assertionLine.match(/expected:?\s*<?([^>]+)>?/i);
-    const actualMatch = assertionLine.match(/but\s*was:?\s*<?([^>]+)>?/i);
-    if (expectedMatch) ctx.expected = expectedMatch[1].trim();
-    if (actualMatch) ctx.actual = actualMatch[1].trim();
+  // If multiple failures, note the count
+  if (surefireSummaries.length > 1) {
+    ctx.details = { totalFailures: String(surefireSummaries.length) };
   }
 
-  // Find exception type
-  const exceptionLine = nearby.find((l) =>
-    /^\s*([\w.]+Exception|[\w.]+Error):/.test(l),
-  );
-  if (exceptionLine) {
-    const m = exceptionLine.match(/([\w.]+(?:Exception|Error)):/);
-    if (m) ctx.exceptionType = m[1];
+  // 2. Individual test failure line:
+  //    [ERROR] com.example.TestClass.testMethod -- Time elapsed: X s <<< FAILURE!
+  if (!ctx.testClass) {
+    for (const line of nearby) {
+      const m = line.match(
+        /\[ERROR\]\s+([\w.]+)\.(\w+)\s+--\s+Time elapsed:.*<<<\s+(FAILURE|ERROR)!/,
+      );
+      if (m) {
+        const parts = m[1].split('.');
+        ctx.testClass = parts[parts.length - 1];
+        ctx.testName = m[2];
+        break;
+      }
+    }
   }
 
-  // Find deepest "Caused by:"
-  const causedByLines = nearby.filter((l) => l.trim().startsWith("Caused by:"));
+  // 3. Failed test class from results line:
+  //    [ERROR] Tests run: N ... <<< FAILURE! -- in com.example.TestClass
+  if (!ctx.testClass) {
+    for (const line of nearby) {
+      const m = line.match(
+        /\[ERROR\] Tests run:.*<<<\s+FAILURE!.*(?:--?)\s+in\s+([\w.]+)/,
+      );
+      if (m) {
+        const parts = m[1].split('.');
+        ctx.testClass = parts[parts.length - 1];
+        break;
+      }
+    }
+  }
+
+  // 4. Exception type from assertion error line
+  if (!ctx.exceptionType) {
+    for (const line of nearby) {
+      const m = line.match(
+        /^(org\.[\w.]+(?:Exception|Error)|java\.[\w.]+(?:Exception|Error)):\s*(.*)/,
+      );
+      if (m) {
+        ctx.exceptionType = m[1].split('.').pop();
+        if (!ctx.assertion) ctx.assertion = m[2];
+        break;
+      }
+    }
+  }
+
+  // 5. Stack trace — app frames only
+  for (let i = 0; i < nearby.length; i++) {
+    if (/(?:Exception|Error):/.test(nearby[i])) {
+      const absIdx = scanStart + i;
+      ctx.stackTrace = extractAppStackFrames(lines, absIdx);
+      break;
+    }
+  }
+
+  // 6. Deepest Caused by:
+  const causedByLines = nearby.filter((l) =>
+    l.trim().startsWith('Caused by:'),
+  );
   if (causedByLines.length > 0) {
-    ctx.rootCause = causedByLines[causedByLines.length - 1].trim();
+    ctx.rootCause = causedByLines[causedByLines.length - 1]
+      .replace('Caused by:', '')
+      .trim();
   }
 
-  // Stack trace (app frames only)
-  const exIdx = nearby.findIndex((l) => /Exception|Error|at\s+/.test(l));
-  if (exIdx >= 0) {
-    const absIdx = Math.max(0, matchIndex - 100) + exIdx;
-    ctx.stackTrace = extractAppStackFrames(lines, absIdx);
-  }
-
-  // Maven module
-  const moduleLine = nearby.find((l) => /\[ERROR\].*in\s+module\s+/i.test(l));
-  if (moduleLine) {
-    const m = moduleLine.match(/module\s+([\w-]+)/i);
-    if (m) ctx.module = m[1];
+  // 7. Maven module from reactor summary
+  for (const line of nearby) {
+    const m = line.match(
+      /\[INFO\]\s+([\w-]+)\s+\.{2,}\s+FAILURE/,
+    );
+    if (m) {
+      ctx.module = m[1];
+      break;
+    }
   }
 
   return ctx as ExtractedContext;
 };
 
-// ─── TypeScript / ESLint ────────────────────────────────────
+// ─── TypeScript ─────────────────────────────────────────────
 
-export const extractTypeScriptContext: ContextExtractor = (
-  lines,
-  matchIndex,
-) => {
+export const extractTypeScriptContext: ContextExtractor = (lines, matchIndex) => {
   const ctx: Record<string, unknown> = {};
 
   // Extract file path and line: "src/foo.ts(42,17): error TS2304: ..."
@@ -134,52 +191,88 @@ export const extractTypeScriptContext: ContextExtractor = (
   return ctx as ExtractedContext;
 };
 
+// ─── CRA / Webpack / Vite build failures ────────────────────
+
+export const extractWebpackContext: ContextExtractor = (lines, matchIndex) => {
+  const ctx: Record<string, unknown> = {};
+  const nearby = scanNearby(lines, matchIndex, 30);
+
+  // ESLint config error:
+  // [eslint] ESLint configuration in .eslintrc.js >> plugin:X is invalid:
+  //   - Unexpected top-level property "name".
+  // Referenced from: /path/.eslintrc.js
+  const eslintLine = nearby.find((l) => /\[eslint\]/.test(l));
+  if (eslintLine) {
+    ctx.rootCause = eslintLine.replace(/.*\[eslint\]\s*/, '').trim();
+
+    const detailLine = nearby.find((l) => /^\s+-\s+/.test(l));
+    if (detailLine) {
+      ctx.assertion = detailLine.trim().replace(/^-\s*/, '');
+    }
+
+    const refLine = nearby.find((l) => /Referenced from:/.test(l));
+    if (refLine) {
+      const m = refLine.match(/Referenced from:\s*(.*)/);
+      if (m) ctx.filePath = m[1].trim();
+    }
+  }
+
+  // Module not found: Can't resolve './foo' in '/path/to/dir'
+  const moduleNotFound = nearby.find((l) => /Module not found/i.test(l));
+  if (moduleNotFound) {
+    ctx.rootCause = moduleNotFound.trim();
+    const m = moduleNotFound.match(/Can't resolve '([^']+)'/i);
+    if (m) ctx.details = { missingModule: m[1] };
+  }
+
+  // Generic webpack error
+  if (!ctx.rootCause) {
+    const errorLine = nearby.find(
+      (l) => /ERROR in/.test(l) || /error\s+in/i.test(l),
+    );
+    if (errorLine) {
+      ctx.rootCause = errorLine.trim();
+    }
+  }
+
+  return ctx as ExtractedContext;
+};
+
 // ─── Jest / Vitest ──────────────────────────────────────────
 
 export const extractJestContext: ContextExtractor = (lines, matchIndex) => {
   const ctx: Record<string, unknown> = {};
   const nearby = scanNearby(lines, matchIndex, 80);
 
-  // Find test name: "● TestSuite > test name" or "FAIL src/..."
+  // Test name: "● TestSuite > test name"
   const testNameLine = nearby.find((l) => /●\s+/.test(l));
   if (testNameLine) {
     const m = testNameLine.match(/●\s+(.*)/);
     if (m) {
-      const parts = m[1].split(" > ");
+      const parts = m[1].split(' > ');
       ctx.testClass = parts[0]?.trim();
-      ctx.testName = parts.slice(1).join(" > ").trim() || parts[0]?.trim();
+      ctx.testName = parts.slice(1).join(' > ').trim() || parts[0]?.trim();
     }
   }
 
-  // Find assertion: "Expected: X / Received: Y"
+  // Assertion: "Expected: X" / "Received: Y"
   const expectedLine = nearby.find((l) => /Expected:/.test(l));
   const receivedLine = nearby.find((l) => /Received:/.test(l));
   if (expectedLine) {
-    ctx.expected = expectedLine.replace(/.*Expected:\s*/, "").trim();
+    ctx.expected = expectedLine.replace(/.*Expected:\s*/, '').trim();
   }
   if (receivedLine) {
-    ctx.actual = receivedLine.replace(/.*Received:\s*/, "").trim();
+    ctx.actual = receivedLine.replace(/.*Received:\s*/, '').trim();
   }
   if (expectedLine && receivedLine) {
     ctx.assertion = `Expected: ${ctx.expected}\nReceived: ${ctx.actual}`;
   }
 
-  // Find file path from FAIL line
+  // File path from FAIL line
   const failLine = nearby.find((l) => /FAIL\s+src\//.test(l));
   if (failLine) {
     const m = failLine.match(/FAIL\s+(src\/\S+)/);
     if (m) ctx.filePath = m[1];
-  }
-
-  // Snapshot diff
-  const snapshotLine = nearby.find((l) =>
-    /Snapshot.*\d+.*obsolete|toMatchSnapshot/i.test(l),
-  );
-  if (snapshotLine) {
-    ctx.details = {
-      ...((ctx.details as Record<string, string>) ?? {}),
-      snapshotFailure: "true",
-    };
   }
 
   return ctx as ExtractedContext;
@@ -199,10 +292,12 @@ export const extractSpringContext: ContextExtractor = (lines, matchIndex) => {
   }
 
   // Deepest Caused by:
-  const causedByLines = nearby.filter((l) => l.trim().startsWith("Caused by:"));
+  const causedByLines = nearby.filter((l) =>
+    l.trim().startsWith('Caused by:'),
+  );
   if (causedByLines.length > 0) {
     const last = causedByLines[causedByLines.length - 1];
-    ctx.rootCause = last.replace("Caused by:", "").trim();
+    ctx.rootCause = last.replace('Caused by:', '').trim();
     const exMatch = last.match(/([\w.]+(?:Exception|Error))/);
     if (exMatch) ctx.exceptionType = exMatch[1];
   }
@@ -238,7 +333,7 @@ export const extractGenericContext: ContextExtractor = (lines, matchIndex) => {
   const ctx: Record<string, unknown> = {};
   const nearby = scanNearby(lines, matchIndex, 20);
 
-  // Try to find a file:line reference
+  // file:line reference
   const fileLineMatch = nearby.find((l) => /[\w/]+\.\w+[:(]\d+/.test(l));
   if (fileLineMatch) {
     const m = fileLineMatch.match(/([\w/.-]+\.\w+)[:(](\d+)/);
@@ -248,7 +343,7 @@ export const extractGenericContext: ContextExtractor = (lines, matchIndex) => {
     }
   }
 
-  // Try to find a Caused by or root cause
+  // Caused by or root cause
   const causedBy = nearby.find((l) => /Caused by:|Root cause:/i.test(l));
   if (causedBy) {
     ctx.rootCause = causedBy.trim();

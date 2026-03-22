@@ -1,4 +1,4 @@
-import type { FailurePattern, MatchResult, FailureSeverity } from './types';
+import type { FailurePattern, MatchResult, FailureSeverity, ExtractedContext } from './types';
 
 const MAX_SCAN_LINES = 2000;
 
@@ -32,7 +32,7 @@ export function analyzeLog(
   const results: MatchResult[] = [];
 
   for (const pattern of patterns) {
-    const match = findFirstMatch(lines, pattern, lineOffset);
+    const match = findFirstMatch(allLines, lines, pattern, lineOffset);
     if (match !== null) {
       results.push(match);
     }
@@ -45,19 +45,28 @@ export function analyzeLog(
 }
 
 function findFirstMatch(
-  lines: readonly string[],
+  allLines: readonly string[],
+  scanLines: readonly string[],
   pattern: FailurePattern,
   lineOffset: number,
 ): MatchResult | null {
-  for (let i = lines.length - 1; i >= 0; i--) {
-    const line = lines[i];
+  for (let i = scanLines.length - 1; i >= 0; i--) {
+    const line = scanLines[i];
     for (const regex of pattern.patterns) {
       if (regex.test(line)) {
+        const absoluteIndex = i + lineOffset;
+
+        // Run context extractor if available
+        const context: ExtractedContext = pattern.contextExtractor
+          ? pattern.contextExtractor(allLines, absoluteIndex)
+          : {};
+
         return {
           pattern,
           matchedLine: line,
-          lineNumber: i + lineOffset + 1,
+          lineNumber: absoluteIndex + 1,
           confidence: SEVERITY_CONFIDENCE[pattern.severity],
+          context,
         };
       }
     }

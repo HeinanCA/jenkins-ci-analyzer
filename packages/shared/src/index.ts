@@ -1,7 +1,7 @@
-export { analyzeLog } from './analysis/pattern-matcher';
-export { classifyFailure } from './analysis/infra-code-classifier';
-export { FAILURE_PATTERNS } from './analysis/failure-patterns';
-export { calculateHealth } from './health/health-calculator';
+export { analyzeLog } from "./analysis/pattern-matcher";
+export { classifyFailure } from "./analysis/infra-code-classifier";
+export { FAILURE_PATTERNS } from "./analysis/failure-patterns";
+export { calculateHealth } from "./health/health-calculator";
 
 export type {
   FailurePattern,
@@ -11,20 +11,22 @@ export type {
   Classification,
   ClassificationResult,
   AiAnalysisResult,
-} from './analysis/types';
+  ExtractedContext,
+  ContextExtractor,
+} from "./analysis/types";
 
 export type {
   HealthMetrics,
   HealthLevel,
   HealthReport,
-} from './health/health-calculator';
+} from "./health/health-calculator";
 
 export type {
   JenkinsJob,
   JenkinsBuild,
   JenkinsAgent,
   JenkinsQueueItem,
-} from './schemas/jenkins-api';
+} from "./schemas/jenkins-api";
 
 export {
   JenkinsJobSchema,
@@ -36,7 +38,7 @@ export {
   JenkinsComputerSetSchema,
   JenkinsQueueSchema,
   JenkinsInfoSchema,
-} from './schemas/jenkins-api';
+} from "./schemas/jenkins-api";
 
 export {
   POLLING_INTERVALS,
@@ -45,4 +47,4 @@ export {
   MAX_LOG_SCAN_LINES,
   MAX_LOG_CHARS_FOR_AI,
   BUILD_STATUS_COLORS,
-} from './constants';
+} from "./constants";

@@ -1,6 +1,16 @@
 import type { FailurePattern } from './types';
+import {
+  extractJunitContext,
+  extractTypeScriptContext,
+  extractJestContext,
+  extractSpringContext,
+  extractNpmContext,
+  extractGenericContext,
+} from './context-extractors';
 
 export const FAILURE_PATTERNS: readonly FailurePattern[] = [
+  // ─── Infrastructure ─────────────────────────────────────────
+
   {
     id: 'oom',
     name: 'Out of Memory',
@@ -15,13 +25,14 @@ export const FAILURE_PATTERNS: readonly FailurePattern[] = [
       /ENOMEM/i,
     ],
     description:
-      'The build ran out of memory. This is typically an infrastructure issue — the agent does not have enough RAM for this workload.',
+      'The build ran out of memory. This is typically an infrastructure issue.',
     remediationSteps: [
       'Check if your build has a memory leak (e.g., unbounded caching in tests).',
       'Increase memory allocation in your Jenkinsfile (e.g., -Xmx for Java builds).',
       'If this is a container build, increase the container memory limit.',
-      'If the issue persists across multiple jobs, contact DevOps — the agent may need more RAM.',
+      'Contact DevOps if the issue persists across multiple jobs.',
     ],
+    contextExtractor: extractGenericContext,
   },
   {
     id: 'timeout',
@@ -36,83 +47,14 @@ export const FAILURE_PATTERNS: readonly FailurePattern[] = [
       /Cancelling nested steps due to timeout/i,
     ],
     description:
-      'The build exceeded its time limit. This may be caused by a slow test, an infinite loop, or waiting on an unavailable resource.',
+      'The build exceeded its time limit.',
     remediationSteps: [
       'Check if a test is hanging or running much longer than usual.',
       'Look for infinite loops or unbounded retries in recently changed code.',
-      'Verify that all external dependencies (databases, APIs) are reachable from the build agent.',
-      'If the build is legitimately slow, consider increasing the timeout in your Jenkinsfile.',
+      'Verify that all external dependencies (databases, APIs) are reachable.',
+      'If the build is legitimately slow, consider increasing the timeout.',
     ],
-  },
-  {
-    id: 'test-failure',
-    name: 'Test Failure',
-    category: 'code',
-    severity: 'medium',
-    patterns: [
-      /Tests run:.*Failures:\s*[1-9]/i,
-      /FAILED\s+\[/,
-      /AssertionError/i,
-      /AssertError/i,
-      /expected\s+.*\s+but\s+got/i,
-      /test.*failed/i,
-      /FAIL\s+src\//,
-      /✕|✖|FAIL/,
-    ],
-    description:
-      'One or more tests failed. This is a code issue — check the failing test for details.',
-    remediationSteps: [
-      'Look at the test name and assertion message in the log below.',
-      'Run the failing test locally to reproduce.',
-      'Check if this test is known to be flaky (has it passed recently on the same branch?).',
-      'Fix the test or the code it validates, then push again.',
-    ],
-  },
-  {
-    id: 'compilation',
-    name: 'Compilation Error',
-    category: 'code',
-    severity: 'high',
-    patterns: [
-      /error:\s*cannot find symbol/i,
-      /BUILD FAILED/i,
-      /error TS\d+/i,
-      /SyntaxError/i,
-      /Compilation failed/i,
-      /error\[E\d+\]/,
-      /cannot find module/i,
-    ],
-    description:
-      'The code failed to compile. This is a code issue — there is a syntax or type error in the source.',
-    remediationSteps: [
-      'Read the error message carefully — it tells you the file, line, and what went wrong.',
-      'Run the build locally (e.g., `tsc --noEmit` for TypeScript, `mvn compile` for Java).',
-      'Check if a recent rename or deletion broke an import.',
-      'Fix the compilation error and push again.',
-    ],
-  },
-  {
-    id: 'dependency',
-    name: 'Dependency Resolution Failed',
-    category: 'code',
-    severity: 'high',
-    patterns: [
-      /Could not resolve dependencies/i,
-      /404 Not Found.*\.(jar|tgz|whl)/i,
-      /npm ERR! 404/i,
-      /ModuleNotFoundError/i,
-      /Could not find artifact/i,
-      /ERESOLVE/i,
-      /peer dep/i,
-    ],
-    description:
-      'A dependency could not be resolved. This is usually a code issue — a package was removed, renamed, or has a version conflict.',
-    remediationSteps: [
-      'Check if the failing package name and version exist in the registry.',
-      'Run `npm install` (or equivalent) locally to reproduce the error.',
-      'Check for conflicting peer dependency versions.',
-      'If a private registry is down, this may be an infra issue — check with DevOps.',
-    ],
+    contextExtractor: extractGenericContext,
   },
   {
     id: 'disk-full',
@@ -147,10 +89,9 @@ export const FAILURE_PATTERNS: readonly FailurePattern[] = [
       /hudson\.remoting/i,
     ],
     description:
-      'The build agent disconnected during the build. This is an infrastructure issue — not your fault.',
+      'The build agent disconnected during the build. Not your fault.',
     remediationSteps: [
       'This is an infrastructure issue. Your code is not at fault.',
-      'The agent lost connection — this could be a network issue or the agent crashed.',
       'Re-run the build. If it keeps happening, contact DevOps.',
       'Check the Health page to see if other agents are affected.',
     ],
@@ -170,13 +111,14 @@ export const FAILURE_PATTERNS: readonly FailurePattern[] = [
       /getaddrinfo/i,
     ],
     description:
-      'A network connection failed during the build. This may be a temporary infrastructure issue.',
+      'A network connection failed during the build.',
     remediationSteps: [
-      'Check if the failing host is a dependency your build needs (registry, database, API).',
       'Re-run the build — transient network issues often resolve themselves.',
-      'If the issue persists, check the Health page for infrastructure problems.',
+      'Check if the failing host is a dependency your build needs.',
+      'Check the Health page for infrastructure problems.',
       'Contact DevOps if a specific internal service is unreachable.',
     ],
+    contextExtractor: extractGenericContext,
   },
   {
     id: 'permission',
@@ -191,13 +133,13 @@ export const FAILURE_PATTERNS: readonly FailurePattern[] = [
       /not authorized/i,
     ],
     description:
-      'The build was denied access to a resource. This may be a credentials or permissions issue.',
+      'The build was denied access to a resource.',
     remediationSteps: [
       'Check if the build requires credentials that may have expired.',
       'Verify that your Jenkinsfile references the correct credentials ID.',
-      'If accessing a private registry or API, check that the service account has permissions.',
       'Contact DevOps if you believe your permissions should be granted.',
     ],
+    contextExtractor: extractGenericContext,
   },
   {
     id: 'docker',
@@ -212,35 +154,205 @@ export const FAILURE_PATTERNS: readonly FailurePattern[] = [
       /pull access denied/i,
     ],
     description:
-      'A Docker-related error occurred. This may be an infrastructure issue (daemon down) or a code issue (wrong image name).',
+      'A Docker-related error occurred.',
     remediationSteps: [
       'If "Cannot connect to Docker daemon" — this is an infra issue. Contact DevOps.',
-      'If "image not found" — check the image name and tag in your Dockerfile or Jenkinsfile.',
+      'If "image not found" — check the image name and tag in your Dockerfile.',
       'If "pull access denied" — ensure the build has credentials to pull from the registry.',
-      'Try re-running the build. Docker daemon issues are often transient.',
     ],
+    contextExtractor: extractGenericContext,
   },
   {
-    id: 'scm',
-    name: 'SCM Checkout Failed',
+    id: 'port-in-use',
+    name: 'Port Already In Use',
     category: 'infra',
     severity: 'high',
     patterns: [
-      /Failed to checkout/i,
-      /fatal: repository.*not found/i,
-      /Authentication failed for/i,
-      /Could not read from remote repository/i,
-      /Git checkout failed/i,
+      /Address already in use/i,
+      /BindException.*Address already in use/i,
+      /EADDRINUSE/i,
     ],
     description:
-      'Jenkins failed to check out the source code. This may be a credential or repository access issue.',
+      'A port needed by the build is already occupied. This is usually a CI infrastructure issue — parallel builds or a previous test didn\'t clean up.',
     remediationSteps: [
-      'Verify the repository URL is correct in the job configuration.',
-      'Check if the Git credentials configured in Jenkins have expired.',
-      'If the repo was recently renamed or moved, update the job configuration.',
-      'Contact DevOps if this error started happening across multiple jobs.',
+      'This is an infrastructure issue, not your code.',
+      'Re-run the build — the port may be freed by then.',
+      'If using integration tests, ensure they use random ports or Testcontainers.',
+      'Contact DevOps if this happens consistently on the same agent.',
     ],
+    contextExtractor: extractGenericContext,
   },
+
+  // ─── Code: Tests ────────────────────────────────────────────
+
+  {
+    id: 'test-failure-junit',
+    name: 'Test Failure (JUnit/Maven)',
+    category: 'code',
+    severity: 'medium',
+    patterns: [
+      /Tests run:.*Failures:\s*[1-9]/i,
+      /<<< FAIL!/,
+      /BUILD FAILURE.*There are test failures/i,
+    ],
+    description:
+      'One or more JUnit tests failed.',
+    remediationSteps: [
+      'See the failing test and assertion details above.',
+      'Run the failing test locally: `mvn test -pl <module> -Dtest=<TestClass>#<method>`',
+      'Fix the test or the code it validates, then push again.',
+    ],
+    contextExtractor: extractJunitContext,
+  },
+  {
+    id: 'test-failure-jest',
+    name: 'Test Failure (Jest/Vitest)',
+    category: 'code',
+    severity: 'medium',
+    patterns: [
+      /FAIL\s+src\//,
+      /Tests:\s+\d+\s+failed/i,
+      /✕|✖/,
+    ],
+    description:
+      'One or more JavaScript/TypeScript tests failed.',
+    remediationSteps: [
+      'See the failing test and assertion details above.',
+      'Run the failing test locally: `npm test -- --testPathPattern=<file>`',
+      'Fix the test or the code it validates, then push again.',
+    ],
+    contextExtractor: extractJestContext,
+  },
+
+  // ─── Code: Compilation ──────────────────────────────────────
+
+  {
+    id: 'compilation-ts',
+    name: 'TypeScript Compilation Error',
+    category: 'code',
+    severity: 'high',
+    patterns: [
+      /error TS\d+/i,
+      /Cannot find module.*\.tsx?/i,
+    ],
+    description:
+      'TypeScript compilation failed.',
+    remediationSteps: [
+      'See the file, line, and error details above.',
+      'Run locally: `npx tsc --noEmit`',
+      'Check if a recent rename or deletion broke an import.',
+    ],
+    contextExtractor: extractTypeScriptContext,
+  },
+  {
+    id: 'compilation-java',
+    name: 'Java Compilation Error',
+    category: 'code',
+    severity: 'high',
+    patterns: [
+      /error:\s*cannot find symbol/i,
+      /COMPILATION ERROR/i,
+      /javac.*error/i,
+    ],
+    description:
+      'Java compilation failed.',
+    remediationSteps: [
+      'See the file, line, and error details above.',
+      'Run locally: `mvn compile -pl <module>`',
+      'Check if a recent rename or deletion broke an import.',
+    ],
+    contextExtractor: extractGenericContext,
+  },
+
+  // ─── Code: Dependencies ─────────────────────────────────────
+
+  {
+    id: 'dependency-npm',
+    name: 'npm Dependency Resolution Failed',
+    category: 'code',
+    severity: 'high',
+    patterns: [
+      /npm ERR! 404/i,
+      /ERESOLVE/i,
+      /peer dep/i,
+      /Could not resolve dependency/i,
+    ],
+    description:
+      'An npm dependency could not be resolved.',
+    remediationSteps: [
+      'See the conflicting package details above.',
+      'Run `npm install` locally to reproduce.',
+      'Check for conflicting peer dependency versions.',
+      'If a private registry is down, this may be an infra issue.',
+    ],
+    contextExtractor: extractNpmContext,
+  },
+  {
+    id: 'dependency-maven',
+    name: 'Maven Dependency Resolution Failed',
+    category: 'code',
+    severity: 'high',
+    patterns: [
+      /Could not resolve dependencies/i,
+      /Could not find artifact/i,
+      /Non-resolvable parent POM/i,
+    ],
+    description:
+      'A Maven dependency could not be resolved.',
+    remediationSteps: [
+      'Check if the failing artifact exists in your Maven repository.',
+      'Run `mvn dependency:tree` locally to inspect the dependency tree.',
+      'Check if a private Nexus/Artifactory is accessible.',
+    ],
+    contextExtractor: extractGenericContext,
+  },
+
+  // ─── Code: Spring-specific ──────────────────────────────────
+
+  {
+    id: 'spring-context',
+    name: 'Spring Context Startup Failure',
+    category: 'code',
+    severity: 'high',
+    patterns: [
+      /BeanCreationException/i,
+      /UnsatisfiedDependencyException/i,
+      /NoSuchBeanDefinitionException/i,
+      /ApplicationContext.*failed to start/i,
+    ],
+    description:
+      'The Spring application context failed to start. A bean could not be created or a dependency could not be injected.',
+    remediationSteps: [
+      'See the failing bean and root cause above.',
+      'Check if a required @Component, @Service, or @Repository is missing.',
+      'Check if a configuration property is missing or has a wrong value.',
+      'Run the failing test locally to see the full startup error.',
+    ],
+    contextExtractor: extractSpringContext,
+  },
+  {
+    id: 'flyway',
+    name: 'Database Migration Failed (Flyway)',
+    category: 'code',
+    severity: 'high',
+    patterns: [
+      /FlywayException/i,
+      /Migration.*failed/i,
+      /Flyway.*error/i,
+    ],
+    description:
+      'A Flyway database migration failed. This is a schema issue, not a test issue.',
+    remediationSteps: [
+      'Check which migration version failed (see details above).',
+      'Verify the SQL is correct against your target database.',
+      'Check if the migration was already partially applied (may need manual rollback).',
+      'Run `mvn flyway:info` to see migration status.',
+    ],
+    contextExtractor: extractGenericContext,
+  },
+
+  // ─── Code: Lint/Style ───────────────────────────────────────
+
   {
     id: 'lint',
     name: 'Lint / Style Violation',
@@ -253,14 +365,39 @@ export const FAILURE_PATTERNS: readonly FailurePattern[] = [
       /flake8/i,
       /pylint/i,
       /prettier.*--check/i,
+      /spotbugs/i,
     ],
     description:
-      'Code style or linting checks failed. This is a code issue — fix the violations and push again.',
+      'Code style or linting checks failed.',
     remediationSteps: [
-      'Run the linter locally: check your package.json or Makefile for the lint command.',
+      'Run the linter locally (check your package.json or Makefile for the lint command).',
       'Many lint errors can be auto-fixed (e.g., `npm run lint -- --fix`).',
       'Fix remaining errors manually based on the error messages.',
-      'Push the fixes and the build should pass.',
     ],
+    contextExtractor: extractGenericContext,
+  },
+
+  // ─── Code: SCM ──────────────────────────────────────────────
+
+  {
+    id: 'scm',
+    name: 'SCM Checkout Failed',
+    category: 'infra',
+    severity: 'high',
+    patterns: [
+      /Failed to checkout/i,
+      /fatal: repository.*not found/i,
+      /Authentication failed for/i,
+      /Could not read from remote repository/i,
+    ],
+    description:
+      'Jenkins failed to check out the source code.',
+    remediationSteps: [
+      'Verify the repository URL is correct.',
+      'Check if the Git credentials in Jenkins have expired.',
+      'If the repo was recently renamed or moved, update the job configuration.',
+      'Contact DevOps if this error started happening across multiple jobs.',
+    ],
+    contextExtractor: extractGenericContext,
   },
 ] as const;

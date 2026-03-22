@@ -40,6 +40,9 @@ services:
       DATABASE_URL: postgres://tig:tig@postgres:5432/tig
       TIG_ENCRYPTION_KEY: "${TIG_ENCRYPTION_KEY:-change-me-in-production-32chars!}"
       ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-}"
+      AWS_REGION: "${AWS_REGION:-}"
+      AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID:-}"
+      AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY:-}"
     depends_on:
       postgres:
         condition: service_healthy

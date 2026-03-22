@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
+import { AnthropicBedrock } from '@anthropic-ai/bedrock-sdk';
 
 const MAX_LOG_CHARS = 50_000;
 
@@ -45,20 +46,41 @@ export interface AiAnalysisResult {
   readonly confidence: number;
 }
 
+function createClient(): Anthropic | AnthropicBedrock | null {
+  // AWS Bedrock — uses AWS credentials from environment (IAM role, env vars, or ~/.aws)
+  const awsRegion = process.env['AWS_REGION'] ?? process.env['AWS_DEFAULT_REGION'];
+  if (awsRegion && !process.env['ANTHROPIC_API_KEY']) {
+    return new AnthropicBedrock({ awsRegion });
+  }
+
+  // Direct Anthropic API
+  const apiKey = process.env['ANTHROPIC_API_KEY'];
+  if (apiKey) {
+    return new Anthropic({ apiKey });
+  }
+
+  return null;
+}
+
+function getModelId(): string {
+  // Bedrock uses a different model ID format
+  if (process.env['AWS_REGION'] && !process.env['ANTHROPIC_API_KEY']) {
+    return process.env['BEDROCK_MODEL_ID'] ?? 'anthropic.claude-haiku-4-5-20251001-v1:0';
+  }
+  return 'claude-haiku-4-5-20251001';
+}
+
 export async function analyzeWithAi(
   log: string,
   jobName: string,
   buildNumber: number,
   regexClassification?: string,
 ): Promise<AiAnalysisResult | null> {
-  const apiKey = process.env['ANTHROPIC_API_KEY'];
-  if (!apiKey) {
+  const client = createClient();
+  if (!client) {
     return null;
   }
 
-  const client = new Anthropic({ apiKey });
-
-  // Truncate log — keep last N chars (failures are at the end)
   const truncatedLog =
     log.length > MAX_LOG_CHARS
       ? `[... ${log.length - MAX_LOG_CHARS} characters truncated ...]\n${log.slice(-MAX_LOG_CHARS)}`
@@ -82,7 +104,7 @@ export async function analyzeWithAi(
 
   try {
     const response = await client.messages.create({
-      model: 'claude-haiku-4-5-20251001',
+      model: getModelId(),
       max_tokens: 1024,
       system: SYSTEM_PROMPT,
       messages: [{ role: 'user', content: userMessage }],
@@ -91,7 +113,6 @@ export async function analyzeWithAi(
     const text =
       response.content[0].type === 'text' ? response.content[0].text : '';
 
-    // Parse JSON from response — handle potential markdown wrapping
     const jsonStr = text
       .replace(/```json\n?/g, '')
       .replace(/```\n?/g, '')

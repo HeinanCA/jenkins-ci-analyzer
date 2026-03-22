@@ -10,15 +10,21 @@ export const scheduleCrawls: Task = async (_payload, helpers) => {
     .where(eq(ciInstances.isActive, true));
 
   for (const instance of activeInstances) {
-    await helpers.addJob('crawl_instance', { instanceId: instance.id }, {
-      jobKey: `crawl:${instance.id}`,
-      jobKeyMode: 'replace',
-    });
+    await helpers.addJob(
+      'crawl_instance',
+      { instanceId: instance.id },
+      { jobKey: `crawl:${instance.id}`, jobKeyMode: 'replace' },
+    );
+    await helpers.addJob(
+      'snapshot_health',
+      { instanceId: instance.id },
+      { jobKey: `health:${instance.id}`, jobKeyMode: 'replace' },
+    );
   }
 
   if (activeInstances.length > 0) {
     helpers.logger.info(
-      `Scheduled crawls for ${activeInstances.length} instance(s)`,
+      `Scheduled crawls + health for ${activeInstances.length} instance(s)`,
     );
   }
 };

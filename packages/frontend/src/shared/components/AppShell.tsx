@@ -23,14 +23,15 @@ const NAV_ITEMS = [
 function FailureCount() {
   const instanceId = useAuthStore((s) => s.instanceId);
   const { data } = useQuery({
-    queryKey: ["dashboard-summary", instanceId],
-    queryFn: () => tigDashboard.summary(instanceId ?? undefined),
+    queryKey: ["all-failures", instanceId],
+    queryFn: () => tigDashboard.failures(instanceId ?? undefined, 50),
     refetchInterval: 30_000,
   });
-  if (!data?.failing) return null;
+  const count = data?.length ?? 0;
+  if (count === 0) return null;
   return (
     <Badge size="xs" color="red" variant="filled" circle>
-      {data.failing}
+      {count}
     </Badge>
   );
 }

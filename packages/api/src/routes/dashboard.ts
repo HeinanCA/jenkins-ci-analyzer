@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { eq, and, desc, sql, sum, count } from "drizzle-orm";
+import { eq, and, desc, sql, sum, count, gte } from "drizzle-orm";
 import { db } from "../db/connection";
 import { jobs, builds, buildAnalyses, healthSnapshots } from "../db/schema";
 import { requireAuth } from "../middleware/auth";
@@ -70,7 +70,7 @@ export async function dashboardRoutes(app: FastifyInstance) {
         and(
           instanceId ? eq(jobs.ciInstanceId, instanceId) : undefined,
           sql`${builds.result} IN ('FAILURE', 'UNSTABLE')`,
-          sql`${builds.startedAt} >= ${since}`,
+          gte(builds.startedAt, since),
         ),
       )
       .orderBy(desc(builds.startedAt))

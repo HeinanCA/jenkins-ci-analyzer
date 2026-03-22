@@ -30,7 +30,7 @@ function FailureCount() {
   const count = data?.length ?? 0;
   if (count === 0) return null;
   return (
-    <Badge size="xs" color="red" variant="filled" circle>
+    <Badge size="xs" color="red" variant="filled">
       {count}
     </Badge>
   );

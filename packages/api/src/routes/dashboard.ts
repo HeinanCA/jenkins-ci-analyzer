@@ -37,10 +37,12 @@ export async function dashboardRoutes(app: FastifyInstance) {
 
   // Recent failures with analysis
   app.get<{
-    Querystring: { instance_id?: string; limit?: string };
+    Querystring: { instance_id?: string; limit?: string; days?: string };
   }>("/api/v1/dashboard/failures", async (request) => {
     const instanceId = request.query.instance_id;
-    const limit = Math.min(Number(request.query.limit ?? 20), 50);
+    const limit = Math.min(Number(request.query.limit ?? 50), 100);
+    const days = Number(request.query.days ?? 3);
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 
     const failures = await db
       .select({
@@ -68,6 +70,7 @@ export async function dashboardRoutes(app: FastifyInstance) {
         and(
           instanceId ? eq(jobs.ciInstanceId, instanceId) : undefined,
           sql`${builds.result} IN ('FAILURE', 'UNSTABLE')`,
+          sql`${builds.startedAt} >= ${since}`,
         ),
       )
       .orderBy(desc(builds.startedAt))

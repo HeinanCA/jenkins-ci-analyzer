@@ -75,7 +75,7 @@ function getModelId(): string {
   if (process.env["AWS_REGION"] && !process.env["ANTHROPIC_API_KEY"]) {
     return (
       process.env["BEDROCK_MODEL_ID"] ??
-      "anthropic.claude-haiku-4-5-20251001-v1:0"
+      "us.anthropic.claude-haiku-4-5-20251001-v1:0"
     );
   }
   return "claude-haiku-4-5-20251001";

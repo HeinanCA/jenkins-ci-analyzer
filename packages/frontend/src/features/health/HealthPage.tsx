@@ -13,10 +13,7 @@ import {
 import { tigHealth } from '../../api/tig-client';
 import { useAuthStore } from '../../store/auth-store';
 
-const CARD_STYLE = {
-  backgroundColor: 'rgba(255, 255, 255, 0.03)',
-  borderColor: 'rgba(255, 255, 255, 0.08)',
-};
+const CARD = { backgroundColor: '#1e2030', border: 'none' };
 
 const HEALTH_COLORS: Record<string, string> = {
   healthy: '#34d399',
@@ -45,9 +42,9 @@ export function HealthPage() {
   if (!instanceId) {
     return (
       <Stack gap="md">
-        <Title order={2} c="gray.1">Health</Title>
-        <Card withBorder radius="md" style={CARD_STYLE} p="xl">
-          <Text size="sm" c="dimmed">No Jenkins instance configured.</Text>
+        <Title order={3} c="#e2e8f0">Health</Title>
+        <Card radius="md" style={CARD} p="xl">
+          <Text size="sm" c="#64748b">No Jenkins instance configured.</Text>
         </Card>
       </Stack>
     );
@@ -56,8 +53,7 @@ export function HealthPage() {
   if (current.isLoading) {
     return (
       <Stack align="center" py="xl">
-        <Loader color="blue" />
-        <Text size="sm" c="dimmed">Loading health data...</Text>
+        <Loader color="blue" size="sm" />
       </Stack>
     );
   }
@@ -67,9 +63,9 @@ export function HealthPage() {
   if (!h) {
     return (
       <Stack gap="md">
-        <Title order={2} c="gray.1">Health</Title>
-        <Card withBorder radius="md" style={CARD_STYLE} p="xl">
-          <Text size="sm" c="dimmed">Waiting for first health snapshot...</Text>
+        <Title order={3} c="#e2e8f0">Health</Title>
+        <Card radius="md" style={CARD} p="xl">
+          <Text size="sm" c="#64748b">Waiting for first health snapshot...</Text>
         </Card>
       </Stack>
     );
@@ -78,99 +74,80 @@ export function HealthPage() {
   const color = HEALTH_COLORS[h.level] ?? '#475569';
 
   return (
-    <Stack gap="lg">
-      <Title order={2} c="gray.1">Jenkins Health</Title>
+    <Stack gap="md">
+      <Title order={3} c="#e2e8f0">Jenkins Health</Title>
 
-      <Box
-        p="lg"
-        style={{
-          borderRadius: 12,
-          border: `1px solid ${color}33`,
-          background: `linear-gradient(135deg, ${color}08, transparent)`,
-        }}
-      >
-        <Group justify="space-between">
-          <Group gap="sm">
-            <Box
-              style={{
-                width: 12,
-                height: 12,
-                borderRadius: '50%',
-                backgroundColor: color,
-                boxShadow: `0 0 10px ${color}80`,
-              }}
-            />
-            <Text size="lg" fw={600} c="gray.1">
-              Jenkins is {h.level}
-            </Text>
-          </Group>
-          <Text
-            size="xl"
-            fw={700}
-            style={{ color }}
-          >
-            {h.score}/100
-          </Text>
-        </Group>
+      <Group gap="sm">
+        <Box
+          style={{
+            width: 8,
+            height: 8,
+            borderRadius: '50%',
+            backgroundColor: color,
+          }}
+        />
+        <Text size="sm" fw={600} c="#e2e8f0">
+          {h.level}
+        </Text>
+        <Text size="lg" fw={700} style={{ color }}>
+          {h.score}
+        </Text>
+        <Text size="xs" c="#475569">/100</Text>
         {h.issues.length > 0 && (
-          <Text size="sm" c="dimmed" mt="xs">
-            {h.issues.join(' · ')}
-          </Text>
+          <Text size="xs" c="#64748b">— {h.issues.join(' · ')}</Text>
         )}
-      </Box>
+      </Group>
 
       <SimpleGrid cols={{ base: 2, md: 4 }}>
-        <Card withBorder radius="md" style={CARD_STYLE}>
-          <Text size="xs" c="dimmed" tt="uppercase" ls={1}>Agents</Text>
-          <Group gap="xs" align="baseline" mt={4}>
-            <Text size="xl" fw={700} c="gray.1">{h.agentsOnline}</Text>
-            <Text size="sm" c="dimmed">/ {h.agentsTotal}</Text>
+        <Card radius="md" style={CARD} p="sm">
+          <Text size="xs" c="#64748b">Agents</Text>
+          <Group gap={4} align="baseline">
+            <Text size="lg" fw={700} c="#e2e8f0">{h.agentsOnline}</Text>
+            <Text size="xs" c="#475569">/ {h.agentsTotal}</Text>
           </Group>
         </Card>
-        <Card withBorder radius="md" style={CARD_STYLE}>
-          <Text size="xs" c="dimmed" tt="uppercase" ls={1}>Executors</Text>
-          <Group gap="xs" align="baseline" mt={4}>
-            <Text size="xl" fw={700} c="gray.1">{h.executorsBusy}</Text>
-            <Text size="sm" c="dimmed">/ {h.executorsTotal}</Text>
+        <Card radius="md" style={CARD} p="sm">
+          <Text size="xs" c="#64748b">Executors</Text>
+          <Group gap={4} align="baseline">
+            <Text size="lg" fw={700} c="#e2e8f0">{h.executorsBusy}</Text>
+            <Text size="xs" c="#475569">/ {h.executorsTotal}</Text>
           </Group>
         </Card>
-        <Card withBorder radius="md" style={CARD_STYLE}>
-          <Text size="xs" c="dimmed" tt="uppercase" ls={1}>Queue</Text>
-          <Text size="xl" fw={700} c={h.queueDepth > 10 ? '#f87171' : 'gray.1'} mt={4}>
+        <Card radius="md" style={CARD} p="sm">
+          <Text size="xs" c="#64748b">Queue</Text>
+          <Text size="lg" fw={700} c={h.queueDepth > 10 ? '#f87171' : '#e2e8f0'}>
             {h.queueDepth}
           </Text>
         </Card>
-        <Card withBorder radius="md" style={CARD_STYLE}>
-          <Text size="xs" c="dimmed" tt="uppercase" ls={1}>Stuck</Text>
-          <Text size="xl" fw={700} c={h.stuckBuilds > 0 ? '#f87171' : '#34d399'} mt={4}>
+        <Card radius="md" style={CARD} p="sm">
+          <Text size="xs" c="#64748b">Stuck</Text>
+          <Text size="lg" fw={700} c={h.stuckBuilds > 0 ? '#f87171' : '#34d399'}>
             {h.stuckBuilds}
           </Text>
         </Card>
       </SimpleGrid>
 
       {history.data && history.data.length > 1 && (
-        <div>
-          <Title order={4} c="gray.2" mb="sm">Last Hour</Title>
-          <Stack gap={4}>
-            {history.data.slice(-12).map((s, i) => (
-              <Group key={i} gap="sm" style={{ padding: '4px 0' }}>
-                <Text size="xs" c="dimmed" w={80} style={{ fontFamily: 'monospace' }}>
-                  {new Date(s.recordedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </Text>
-                <Badge
-                  size="xs"
-                  variant="filled"
-                  style={{ backgroundColor: HEALTH_COLORS[s.level] ?? '#475569' }}
-                >
-                  {s.score}
-                </Badge>
-                <Text size="xs" c="dimmed">
-                  {s.agentsOnline}/{s.agentsTotal} agents · {s.queueDepth} queued
-                </Text>
-              </Group>
-            ))}
-          </Stack>
-        </div>
+        <Stack gap="xs">
+          <Text size="sm" fw={600} c="#94a3b8">Last hour</Text>
+          {history.data.slice(-10).map((s, i) => (
+            <Group key={i} gap="sm">
+              <Text size="xs" c="#475569" w={60} style={{ fontFamily: 'monospace' }}>
+                {new Date(s.recordedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </Text>
+              <Badge
+                size="xs"
+                variant="filled"
+                style={{ backgroundColor: HEALTH_COLORS[s.level] ?? '#475569', minWidth: 28 }}
+              >
+                {s.score}
+              </Badge>
+              <Text size="xs" c="#475569">
+                {s.agentsOnline}/{s.agentsTotal} agents · {s.queueDepth} queued
+              </Text>
+            </Group>
+          ))}
+        </Stack>
       )}
     </Stack>
   );

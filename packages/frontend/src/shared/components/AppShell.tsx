@@ -7,17 +7,33 @@ import {
   Box,
   Stack,
   Tooltip,
+  Badge,
 } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store/auth-store';
-import { tigAiCost } from '../../api/tig-client';
+import { tigAiCost, tigDashboard } from '../../api/tig-client';
 
 const NAV_ITEMS = [
-  { label: 'Dashboard', path: '/', icon: '◉' },
-  { label: 'Failures', path: '/failures', icon: '✕' },
-  { label: 'Health', path: '/health', icon: '♡' },
+  { label: 'Dashboard', path: '/' },
+  { label: 'Failures', path: '/failures' },
+  { label: 'Health', path: '/health' },
 ] as const;
+
+function FailureCount() {
+  const instanceId = useAuthStore((s) => s.instanceId);
+  const { data } = useQuery({
+    queryKey: ['dashboard-summary', instanceId],
+    queryFn: () => tigDashboard.summary(instanceId ?? undefined),
+    refetchInterval: 30_000,
+  });
+  if (!data?.failing) return null;
+  return (
+    <Badge size="xs" color="red" variant="filled" circle>
+      {data.failing}
+    </Badge>
+  );
+}
 
 function AiCostBadge() {
   const { data } = useQuery({
@@ -25,29 +41,15 @@ function AiCostBadge() {
     queryFn: () => tigAiCost.get(),
     refetchInterval: 60_000,
   });
-
   if (!data || data.totalCostUsd === 0) return null;
-
   return (
     <Tooltip
-      label={`${data.aiAnalyzedCount} builds analyzed by AI · ~$${data.avgCostPerAnalysis.toFixed(4)}/build`}
-      multiline
+      label={`${data.aiAnalyzedCount} builds analyzed · ~$${data.avgCostPerAnalysis.toFixed(4)}/build`}
       w={220}
     >
-      <Box
-        px={10}
-        py={4}
-        style={{
-          borderRadius: 6,
-          backgroundColor: 'rgba(167, 139, 250, 0.1)',
-          border: '1px solid rgba(167, 139, 250, 0.2)',
-          cursor: 'default',
-        }}
-      >
-        <Text size="xs" style={{ color: '#a78bfa', fontFamily: 'monospace' }}>
-          AI ${data.totalCostUsd.toFixed(2)}
-        </Text>
-      </Box>
+      <Text size="xs" c="dimmed" style={{ fontFamily: 'monospace', cursor: 'default' }}>
+        AI ${data.totalCostUsd.toFixed(2)}
+      </Text>
     </Tooltip>
   );
 }
@@ -58,70 +60,41 @@ export function AppShellLayout() {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
 
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
-  };
-
   return (
     <MantineAppShell
-      navbar={{ width: 240, breakpoint: 'sm' }}
-      header={{ height: 60 }}
-      padding="lg"
+      navbar={{ width: 220, breakpoint: 'sm' }}
+      header={{ height: 52 }}
+      padding="md"
       styles={{
-        main: {
-          background: 'linear-gradient(180deg, #0a0a0f 0%, #111827 100%)',
-          minHeight: '100vh',
-        },
+        main: { backgroundColor: '#0f1117', minHeight: '100vh' },
         header: {
-          backgroundColor: 'rgba(10, 10, 15, 0.95)',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
-          backdropFilter: 'blur(12px)',
+          backgroundColor: '#0f1117',
+          borderBottom: '1px solid #1e2030',
         },
         navbar: {
-          backgroundColor: 'rgba(10, 10, 15, 0.95)',
-          borderRight: '1px solid rgba(255, 255, 255, 0.06)',
+          backgroundColor: '#0f1117',
+          borderRight: '1px solid #1e2030',
         },
       }}
     >
       <MantineAppShell.Header>
-        <Group h="100%" px="lg" justify="space-between">
-          <Group gap="sm">
-            <Title
-              order={3}
-              style={{
-                background: 'linear-gradient(135deg, #e2e8f0, #60a5fa, #a78bfa)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-              }}
-            >
-              PulsCI
-            </Title>
-            <Text size="xs" c="dimmed" mt={4}>
-              by That Infrastructure Guy
-            </Text>
+        <Group h="100%" px="md" justify="space-between">
+          <Group gap="xs">
+            <Title order={4} c="#e2e8f0">PulsCI</Title>
+            <Text size="xs" c="#475569">by TIG</Text>
           </Group>
           <Group gap="sm">
             <AiCostBadge />
-            {user && (
-              <Text size="xs" c="dimmed">
-                {user.name}
-              </Text>
-            )}
-            <Button
-              size="xs"
-              variant="subtle"
-              color="gray"
-              onClick={handleLogout}
-            >
-              Sign Out
+            {user && <Text size="xs" c="#64748b">{user.name}</Text>}
+            <Button size="xs" variant="subtle" color="gray" onClick={() => { logout(); navigate('/login'); }}>
+              Out
             </Button>
           </Group>
         </Group>
       </MantineAppShell.Header>
 
-      <MantineAppShell.Navbar p="sm">
-        <Stack gap={4} mt="sm">
+      <MantineAppShell.Navbar p="xs" pt="md">
+        <Stack gap={2}>
           {NAV_ITEMS.map((item) => {
             const isActive = location.pathname === item.path;
             return (
@@ -130,31 +103,21 @@ export function AppShellLayout() {
                 onClick={() => navigate(item.path)}
                 style={{
                   cursor: 'pointer',
-                  padding: '10px 14px',
-                  borderRadius: 8,
-                  backgroundColor: isActive
-                    ? 'rgba(96, 165, 250, 0.1)'
-                    : 'transparent',
-                  borderLeft: isActive
-                    ? '3px solid #60a5fa'
-                    : '3px solid transparent',
-                  transition: 'all 0.15s ease',
+                  padding: '8px 12px',
+                  borderRadius: 6,
+                  backgroundColor: isActive ? '#1e2030' : 'transparent',
+                  transition: 'background-color 0.1s',
                 }}
               >
-                <Group gap="sm">
-                  <Text
-                    size="sm"
-                    style={{ opacity: isActive ? 1 : 0.5 }}
-                  >
-                    {item.icon}
-                  </Text>
+                <Group justify="space-between">
                   <Text
                     size="sm"
                     fw={isActive ? 600 : 400}
-                    style={{ color: isActive ? '#e2e8f0' : '#94a3b8' }}
+                    c={isActive ? '#e2e8f0' : '#64748b'}
                   >
                     {item.label}
                   </Text>
+                  {item.path === '/failures' && <FailureCount />}
                 </Group>
               </Box>
             );

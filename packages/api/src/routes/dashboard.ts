@@ -51,6 +51,7 @@ export async function dashboardRoutes(app: FastifyInstance) {
         durationMs: builds.durationMs,
         jobName: jobs.name,
         jobFullPath: jobs.fullPath,
+        jobUrl: jobs.url,
         classification: buildAnalyses.classification,
         confidence: buildAnalyses.confidence,
         matches: buildAnalyses.matches,

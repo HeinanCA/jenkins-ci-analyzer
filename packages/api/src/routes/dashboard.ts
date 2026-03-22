@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, sum, count } from "drizzle-orm";
 import { db } from "../db/connection";
 import { jobs, builds, buildAnalyses, healthSnapshots } from "../db/schema";
 import { requireAuth } from "../middleware/auth";
@@ -127,5 +127,32 @@ export async function dashboardRoutes(app: FastifyInstance) {
       .orderBy(healthSnapshots.recordedAt);
 
     return { data: snapshots, error: null };
+  });
+
+  // AI cost tracking
+  app.get("/api/v1/dashboard/ai-cost", async () => {
+    const [result] = await db
+      .select({
+        totalCost: sum(buildAnalyses.aiCostUsd),
+        totalInputTokens: sum(buildAnalyses.aiInputTokens),
+        totalOutputTokens: sum(buildAnalyses.aiOutputTokens),
+        analyzedCount: count(buildAnalyses.id),
+        aiCount: count(buildAnalyses.aiSummary),
+      })
+      .from(buildAnalyses);
+
+    return {
+      data: {
+        totalCostUsd: Number(result.totalCost ?? 0),
+        totalInputTokens: Number(result.totalInputTokens ?? 0),
+        totalOutputTokens: Number(result.totalOutputTokens ?? 0),
+        analyzedCount: Number(result.analyzedCount ?? 0),
+        aiAnalyzedCount: Number(result.aiCount ?? 0),
+        avgCostPerAnalysis: result.aiCount
+          ? Number(result.totalCost ?? 0) / Number(result.aiCount)
+          : 0,
+      },
+      error: null,
+    };
   });
 }

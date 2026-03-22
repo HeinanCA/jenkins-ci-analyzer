@@ -1,24 +1,24 @@
-import type { Task } from 'graphile-worker';
-import { eq } from 'drizzle-orm';
-import { db } from '../db/connection';
-import { builds, jobs, ciInstances, buildAnalyses } from '../db/schema';
+import type { Task } from "graphile-worker";
+import { eq } from "drizzle-orm";
+import { db } from "../db/connection";
+import { builds, jobs, ciInstances, buildAnalyses } from "../db/schema";
 import {
   decryptCredentials,
   type EncryptedCredentials,
-} from '../services/credential-vault';
-import { jenkinsGetText } from '../services/jenkins-client';
-import { analyzeLog, classifyFailure, FAILURE_PATTERNS } from '@tig/shared';
-import { analyzeWithAi } from '../services/ai-analyzer';
+} from "../services/credential-vault";
+import { jenkinsGetText } from "../services/jenkins-client";
+import { analyzeLog, classifyFailure, FAILURE_PATTERNS } from "@tig/shared";
+import { analyzeWithAi } from "../services/ai-analyzer";
 
 function jobPathToConsoleUrl(
   baseUrl: string,
   fullPath: string,
   buildNumber: number,
 ): string {
-  const segments = fullPath.split('/');
+  const segments = fullPath.split("/");
   const jenkinsPath = segments
     .map((s) => `job/${encodeURIComponent(s)}`)
-    .join('/');
+    .join("/");
   return `${baseUrl}/${jenkinsPath}/${buildNumber}/consoleText`;
 }
 
@@ -55,7 +55,11 @@ export const analyzeBuild: Task = async (payload, helpers) => {
   }
 
   const [job] = await db
-    .select({ fullPath: jobs.fullPath, name: jobs.name, ciInstanceId: jobs.ciInstanceId })
+    .select({
+      fullPath: jobs.fullPath,
+      name: jobs.name,
+      ciInstanceId: jobs.ciInstanceId,
+    })
     .from(jobs)
     .where(eq(jobs.id, build.jobId))
     .limit(1);
@@ -94,7 +98,7 @@ export const analyzeBuild: Task = async (payload, helpers) => {
     log = await jenkinsGetText(logUrl, credentials);
   } catch (error) {
     helpers.logger.error(
-      `Failed to fetch log for build ${buildId}: ${error instanceof Error ? error.message : 'unknown'}`,
+      `Failed to fetch log for build ${buildId}: ${error instanceof Error ? error.message : "unknown"}`,
     );
     return;
   }
@@ -104,15 +108,19 @@ export const analyzeBuild: Task = async (payload, helpers) => {
   const regexClassification = classifyFailure(matches);
 
   // Layer 2: AI analysis — the real intelligence
-  const aiResult = await analyzeWithAi(
+  const aiResponse = await analyzeWithAi(
     log,
     job.fullPath,
     build.buildNumber,
     regexClassification.classification,
   );
 
+  const aiResult = aiResponse.result;
+  const aiUsage = aiResponse.usage;
+
   // Store combined result
-  const classification = aiResult?.classification ?? regexClassification.classification;
+  const classification =
+    aiResult?.classification ?? regexClassification.classification;
   const confidence = aiResult?.confidence ?? regexClassification.confidence;
 
   await db.insert(buildAnalyses).values({
@@ -142,7 +150,10 @@ export const analyzeBuild: Task = async (payload, helpers) => {
           stackTrace: aiResult.stackTrace,
         }
       : null,
-    aiSkippedReason: aiResult ? null : (process.env['ANTHROPIC_API_KEY'] ? null : 'disabled'),
+    aiSkippedReason: aiResult ? null : "disabled",
+    aiInputTokens: aiUsage?.inputTokens ?? null,
+    aiOutputTokens: aiUsage?.outputTokens ?? null,
+    aiCostUsd: aiUsage?.costUsd ?? null,
   });
 
   await db
@@ -150,9 +161,9 @@ export const analyzeBuild: Task = async (payload, helpers) => {
     .set({ logFetched: true, logSizeBytes: log.length })
     .where(eq(builds.id, buildId));
 
-  if (aiResult) {
+  if (aiResult && aiUsage) {
     helpers.logger.info(
-      `Analyzed build ${buildId} [AI]: ${aiResult.summary}`,
+      `Analyzed build ${buildId} [AI]: ${aiResult.summary} ($${aiUsage.costUsd.toFixed(4)})`,
     );
   } else {
     helpers.logger.info(

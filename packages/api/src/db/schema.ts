@@ -218,6 +218,9 @@ export const buildAnalyses = pgTable("build_analyses", {
   aiSkippedReason: text("ai_skipped_reason", {
     enum: ["budget_exhausted", "high_confidence_match", "disabled"],
   }),
+  aiInputTokens: integer("ai_input_tokens"),
+  aiOutputTokens: integer("ai_output_tokens"),
+  aiCostUsd: real("ai_cost_usd"),
   analyzedAt: timestamp("analyzed_at", { withTimezone: true })
     .defaultNow()
     .notNull(),

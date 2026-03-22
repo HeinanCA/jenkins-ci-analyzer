@@ -1,21 +1,56 @@
 import {
   AppShell as MantineAppShell,
-  NavLink,
   Group,
   Title,
   Text,
   Button,
   Box,
   Stack,
+  Tooltip,
 } from '@mantine/core';
+import { useQuery } from '@tanstack/react-query';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store/auth-store';
+import { tigAiCost } from '../../api/tig-client';
 
 const NAV_ITEMS = [
   { label: 'Dashboard', path: '/', icon: '◉' },
   { label: 'Failures', path: '/failures', icon: '✕' },
   { label: 'Health', path: '/health', icon: '♡' },
 ] as const;
+
+function AiCostBadge() {
+  const { data } = useQuery({
+    queryKey: ['ai-cost'],
+    queryFn: () => tigAiCost.get(),
+    refetchInterval: 60_000,
+  });
+
+  if (!data || data.totalCostUsd === 0) return null;
+
+  return (
+    <Tooltip
+      label={`${data.aiAnalyzedCount} builds analyzed by AI · ~$${data.avgCostPerAnalysis.toFixed(4)}/build`}
+      multiline
+      w={220}
+    >
+      <Box
+        px={10}
+        py={4}
+        style={{
+          borderRadius: 6,
+          backgroundColor: 'rgba(167, 139, 250, 0.1)',
+          border: '1px solid rgba(167, 139, 250, 0.2)',
+          cursor: 'default',
+        }}
+      >
+        <Text size="xs" style={{ color: '#a78bfa', fontFamily: 'monospace' }}>
+          AI ${data.totalCostUsd.toFixed(2)}
+        </Text>
+      </Box>
+    </Tooltip>
+  );
+}
 
 export function AppShellLayout() {
   const navigate = useNavigate();
@@ -67,6 +102,7 @@ export function AppShellLayout() {
             </Text>
           </Group>
           <Group gap="sm">
+            <AiCostBadge />
             {user && (
               <Text size="xs" c="dimmed">
                 {user.name}
@@ -108,18 +144,14 @@ export function AppShellLayout() {
                 <Group gap="sm">
                   <Text
                     size="sm"
-                    style={{
-                      opacity: isActive ? 1 : 0.5,
-                    }}
+                    style={{ opacity: isActive ? 1 : 0.5 }}
                   >
                     {item.icon}
                   </Text>
                   <Text
                     size="sm"
                     fw={isActive ? 600 : 400}
-                    style={{
-                      color: isActive ? '#e2e8f0' : '#94a3b8',
-                    }}
+                    style={{ color: isActive ? '#e2e8f0' : '#94a3b8' }}
                   >
                     {item.label}
                   </Text>

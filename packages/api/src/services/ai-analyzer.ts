@@ -36,6 +36,8 @@ Rules:
 - If multiple tests failed, focus on the first/most important one.
 - ALWAYS include filePath and lineNumber if they appear anywhere in the log. Developers need to know WHERE to look.
 - stackTrace should only include frames from the application code, not framework/library internals.
+- CRITICAL: Find the ROOT CAUSE, not the last error. Build logs often have cascading failures. A test failure causes JaCoCo/coverage to fail, which causes the build to fail. The test failure is the root cause, NOT the coverage error. Look for AssertionError, AssertionFailedError, test failures BEFORE looking at post-build errors like coverage, reporting, or publishing steps.
+- Post-build errors (JaCoCo, Surefire report, coverage publish, artifact upload) are SYMPTOMS, not causes. Always trace back to the original failure.
 - Respond ONLY with JSON. No markdown, no explanation outside the JSON.`;
 
 export interface AiAnalysisResult {

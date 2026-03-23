@@ -188,7 +188,11 @@ export function FailuresPage() {
                           AI
                         </Badge>
                       ) : (
-                        <Tooltip label="AI was offline. Classification may be inaccurate.">
+                        <Tooltip
+                          label="AI was offline. Classification may be inaccurate."
+                          multiline
+                          w={250}
+                        >
                           <Badge size="xs" variant="light" color="gray">
                             regex
                           </Badge>

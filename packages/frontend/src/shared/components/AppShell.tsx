@@ -52,6 +52,7 @@ function AiCostBadge() {
       <Tooltip
         label="AI analysis is not running. Recent failures have reduced accuracy. Check AWS credentials."
         w={300}
+        multiline
       >
         <Text size="xs" c="#f87171" fw={600} style={{ cursor: "default" }}>
           ⚠ AI offline

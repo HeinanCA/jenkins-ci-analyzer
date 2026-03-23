@@ -10,11 +10,20 @@ export const colors = {
   textSecondary: '#94a3b8',
   textTertiary: '#64748b',
   textMuted: '#475569',
+  lineNumber: '#666666',
   success: '#34d399',
   failure: '#f87171',
+  critical: '#ef4444',
   warning: '#fbbf24',
   info: '#60a5fa',
   accent: '#a78bfa',
+} as const;
+
+export const HEALTH_COLORS: Record<string, string> = {
+  healthy: colors.success,
+  degraded: colors.warning,
+  unhealthy: colors.failure,
+  down: colors.critical,
 } as const;
 
 export const cardStyle = {

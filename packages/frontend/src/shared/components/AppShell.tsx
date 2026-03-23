@@ -58,7 +58,12 @@ function AiCostBadge() {
         w={300}
         multiline
       >
-        <Text size="xs" c="#f87171" fw={600} style={{ cursor: "default" }}>
+        <Text
+          size="xs"
+          c={colors.failure}
+          fw={600}
+          style={{ cursor: "default" }}
+        >
           ⚠ AI offline
         </Text>
       </Tooltip>

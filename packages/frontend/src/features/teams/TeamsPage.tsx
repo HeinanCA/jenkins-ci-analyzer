@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState, useMemo } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Stack,
   Title,
@@ -14,10 +14,10 @@ import {
   Loader,
   Checkbox,
   ScrollArea,
-} from '@mantine/core';
-import { tigTeams } from '../../api/tig-client';
-import { useAuthStore } from '../../store/auth-store';
-import { colors, cardStyle } from '../../theme/mantine-theme';
+} from "@mantine/core";
+import { tigTeams, tigInstances } from "../../api/tig-client";
+import { useAuthStore } from "../../store/auth-store";
+import { colors, cardStyle } from "../../theme/mantine-theme";
 
 interface FolderNode {
   name: string;
@@ -29,11 +29,11 @@ interface FolderNode {
 function buildFolderTree(jobs: { fullPath: string }[]): FolderNode[] {
   const root: FolderNode[] = [];
   for (const job of jobs) {
-    const parts = job.fullPath.split('/');
+    const parts = job.fullPath.split("/");
     if (parts.length < 2) continue;
     const folderParts = parts.slice(0, -1);
     let current = root;
-    let currentPath = '';
+    let currentPath = "";
     for (const part of folderParts) {
       currentPath = currentPath ? `${currentPath}/${part}` : part;
       let node = current.find((n) => n.name === part);
@@ -77,10 +77,10 @@ function FolderCheckboxes({
   return (
     <Stack gap={2} pl={depth * 16}>
       {nodes.map((node) => {
-        const pattern = node.path + '/**';
+        const pattern = node.path + "/**";
         const isChecked = selected.has(pattern);
-        const hasChildChecked = node.children.some(
-          (c) => selected.has(c.path + '/**'),
+        const hasChildChecked = node.children.some((c) =>
+          selected.has(c.path + "/**"),
         );
         return (
           <div key={node.path}>
@@ -88,17 +88,25 @@ function FolderCheckboxes({
               size="xs"
               label={
                 <Group gap={6}>
-                  <Text size="xs" c={isChecked ? colors.text : colors.textSecondary}>
+                  <Text
+                    size="xs"
+                    c={isChecked ? colors.text : colors.textSecondary}
+                  >
                     {node.name}
                   </Text>
-                  <Text size="xs" c={colors.textMuted}>{node.jobCount}</Text>
+                  <Text size="xs" c={colors.textMuted}>
+                    {node.jobCount}
+                  </Text>
                 </Group>
               }
               checked={isChecked}
               indeterminate={!isChecked && hasChildChecked}
               onChange={() => onToggle(pattern)}
               styles={{
-                input: { backgroundColor: colors.surfaceLight, borderColor: colors.border },
+                input: {
+                  backgroundColor: colors.surfaceLight,
+                  borderColor: colors.border,
+                },
               }}
             />
             {node.children.length > 0 && (
@@ -122,31 +130,32 @@ export function TeamsPage() {
   const orgId = useAuthStore((s) => s.organizationId);
 
   const [creating, setCreating] = useState(false);
-  const [newName, setNewName] = useState('');
-  const [selectedPatterns, setSelectedPatterns] = useState<Set<string>>(new Set());
-  const [treeSearch, setTreeSearch] = useState('');
+  const [newName, setNewName] = useState("");
+  const [selectedPatterns, setSelectedPatterns] = useState<Set<string>>(
+    new Set(),
+  );
+  const [treeSearch, setTreeSearch] = useState("");
 
   const { data: teams, isLoading } = useQuery({
-    queryKey: ['teams'],
+    queryKey: ["teams"],
     queryFn: () => tigTeams.list(),
   });
 
-  // Prefetch jobs on page load (not just when creating)
   const { data: instanceJobs } = useQuery({
-    queryKey: ['instance-jobs', instanceId],
-    queryFn: async () => {
-      if (!instanceId) return [];
-      const response = await fetch(`/api/v1/instances/${instanceId}/jobs?limit=2000`, { credentials: 'include' });
-      if (!response.ok) return [];
-      const json = await response.json();
-      return json.data ?? [];
-    },
+    queryKey: ["instance-jobs", instanceId],
+    queryFn: () => (instanceId ? tigInstances.jobs(instanceId) : []),
     enabled: !!instanceId,
     staleTime: 60_000,
   });
 
-  const folderTree = useMemo(() => buildFolderTree(instanceJobs ?? []), [instanceJobs]);
-  const filteredTree = useMemo(() => filterTree(folderTree, treeSearch), [folderTree, treeSearch]);
+  const folderTree = useMemo(
+    () => buildFolderTree(instanceJobs ?? []),
+    [instanceJobs],
+  );
+  const filteredTree = useMemo(
+    () => filterTree(folderTree, treeSearch),
+    [folderTree, treeSearch],
+  );
 
   const togglePattern = (pattern: string) => {
     setSelectedPatterns((prev) => {
@@ -169,18 +178,18 @@ export function TeamsPage() {
         folderPatterns: Array.from(selectedPatterns),
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['teams'] });
+      queryClient.invalidateQueries({ queryKey: ["teams"] });
       setCreating(false);
-      setNewName('');
+      setNewName("");
       setSelectedPatterns(new Set());
-      setTreeSearch('');
+      setTreeSearch("");
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => tigTeams.delete(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['teams'] });
+      queryClient.invalidateQueries({ queryKey: ["teams"] });
     },
   });
 
@@ -195,7 +204,9 @@ export function TeamsPage() {
   return (
     <Stack gap="md">
       <Group justify="space-between">
-        <Title order={3} c={colors.text}>Teams</Title>
+        <Title order={3} c={colors.text}>
+          Teams
+        </Title>
         {!creating && (
           <Button size="xs" color="violet" onClick={() => setCreating(true)}>
             New Team
@@ -206,23 +217,35 @@ export function TeamsPage() {
       {creating && (
         <Card radius="md" style={cardStyle} p="md">
           <Stack gap="sm">
-            <Text size="sm" fw={600} c={colors.text}>Create Team</Text>
+            <Text size="sm" fw={600} c={colors.text}>
+              Create Team
+            </Text>
             <TextInput
               placeholder="Team name (e.g., Backend, Frontend, Automation)"
               value={newName}
               onChange={(e) => setNewName(e.currentTarget.value)}
-              styles={{ input: { backgroundColor: colors.surfaceLight, border: 'none' } }}
+              styles={{
+                input: { backgroundColor: colors.surfaceLight, border: "none" },
+              }}
             />
-            <Text size="xs" c={colors.textSecondary} fw={500}>Select folders this team owns:</Text>
+            <Text size="xs" c={colors.textSecondary} fw={500}>
+              Select folders this team owns:
+            </Text>
             <TextInput
               placeholder="Search folders..."
               size="xs"
               value={treeSearch}
               onChange={(e) => setTreeSearch(e.currentTarget.value)}
-              styles={{ input: { backgroundColor: colors.surfaceLight, border: 'none' } }}
+              styles={{
+                input: { backgroundColor: colors.surfaceLight, border: "none" },
+              }}
             />
             <ScrollArea h={280} type="auto">
-              <Card radius="md" p="sm" style={{ backgroundColor: colors.surfaceLight }}>
+              <Card
+                radius="md"
+                p="sm"
+                style={{ backgroundColor: colors.surfaceLight }}
+              >
                 {filteredTree.length > 0 ? (
                   <FolderCheckboxes
                     nodes={filteredTree}
@@ -232,7 +255,7 @@ export function TeamsPage() {
                   />
                 ) : (
                   <Text size="xs" c={colors.textMuted}>
-                    {treeSearch ? 'No matching folders' : 'Loading...'}
+                    {treeSearch ? "No matching folders" : "Loading..."}
                   </Text>
                 )}
               </Card>
@@ -246,8 +269,14 @@ export function TeamsPage() {
                     variant="light"
                     color="violet"
                     rightSection={
-                      <ActionIcon size={12} variant="transparent" onClick={() => togglePattern(p)}>
-                        <Text size="xs" c={colors.textMuted}>✕</Text>
+                      <ActionIcon
+                        size={12}
+                        variant="transparent"
+                        onClick={() => togglePattern(p)}
+                      >
+                        <Text size="xs" c={colors.textMuted}>
+                          ✕
+                        </Text>
                       </ActionIcon>
                     }
                   >
@@ -266,7 +295,16 @@ export function TeamsPage() {
               >
                 Create
               </Button>
-              <Button size="xs" variant="subtle" color="gray" onClick={() => { setCreating(false); setSelectedPatterns(new Set()); setTreeSearch(''); }}>
+              <Button
+                size="xs"
+                variant="subtle"
+                color="gray"
+                onClick={() => {
+                  setCreating(false);
+                  setSelectedPatterns(new Set());
+                  setTreeSearch("");
+                }}
+              >
                 Cancel
               </Button>
             </Group>
@@ -277,7 +315,9 @@ export function TeamsPage() {
       {(!teams || teams.length === 0) && !creating && (
         <Card radius="md" style={cardStyle} p="xl">
           <Stack align="center" gap="xs">
-            <Text size="sm" c={colors.textTertiary}>No teams yet</Text>
+            <Text size="sm" c={colors.textTertiary}>
+              No teams yet
+            </Text>
             <Text size="xs" c={colors.textMuted}>
               Create teams to scope failures by project.
             </Text>
@@ -291,15 +331,24 @@ export function TeamsPage() {
             <Card key={team.id} radius="md" style={cardStyle} p="sm">
               <Group justify="space-between">
                 <Stack gap={2}>
-                  <Text size="sm" fw={500} c={colors.text}>{team.name}</Text>
+                  <Text size="sm" fw={500} c={colors.text}>
+                    {team.name}
+                  </Text>
                   <Group gap={4}>
                     {team.folderPatterns.map((p, i) => (
-                      <Badge key={i} size="xs" variant="light" color="violet">{p}</Badge>
+                      <Badge key={i} size="xs" variant="light" color="violet">
+                        {p}
+                      </Badge>
                     ))}
                   </Group>
                 </Stack>
                 <Tooltip label="Delete team">
-                  <ActionIcon size="xs" variant="subtle" color="red" onClick={() => deleteMutation.mutate(team.id)}>
+                  <ActionIcon
+                    size="xs"
+                    variant="subtle"
+                    color="red"
+                    onClick={() => deleteMutation.mutate(team.id)}
+                  >
                     <Text size="xs">✕</Text>
                   </ActionIcon>
                 </Tooltip>

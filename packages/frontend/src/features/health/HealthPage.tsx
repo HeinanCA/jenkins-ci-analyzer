@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery } from "@tanstack/react-query";
 import {
   Stack,
   Title,
@@ -9,19 +9,16 @@ import {
   Group,
   Box,
   Tooltip,
-} from '@mantine/core';
-import { tigHealth } from '../../api/tig-client';
-import { useAuthStore } from '../../store/auth-store';
-import { colors, cardStyle } from '../../theme/mantine-theme';
+} from "@mantine/core";
+import { tigHealth } from "../../api/tig-client";
+import { useAuthStore } from "../../store/auth-store";
+import { colors, cardStyle, HEALTH_COLORS } from "../../theme/mantine-theme";
 
-const HEALTH_COLORS: Record<string, string> = {
-  healthy: colors.success,
-  degraded: colors.warning,
-  unhealthy: colors.failure,
-  down: '#ef4444',
-};
-
-function HealthSparkline({ data }: { data: { score: number; level: string; recordedAt: string }[] }) {
+function HealthSparkline({
+  data,
+}: {
+  data: { score: number; level: string; recordedAt: string }[];
+}) {
   if (data.length < 2) return null;
   const maxScore = 100;
 
@@ -33,7 +30,7 @@ function HealthSparkline({ data }: { data: { score: number; level: string; recor
         return (
           <Tooltip
             key={i}
-            label={`${new Date(s.recordedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} — ${s.level} (${s.score})`}
+            label={`${new Date(s.recordedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} — ${s.level} (${s.score})`}
           >
             <Box
               style={{
@@ -41,7 +38,7 @@ function HealthSparkline({ data }: { data: { score: number; level: string; recor
                 height,
                 backgroundColor: color,
                 borderRadius: 2,
-                transition: 'height 0.3s ease',
+                transition: "height 0.3s ease",
               }}
             />
           </Tooltip>
@@ -55,15 +52,15 @@ export function HealthPage() {
   const instanceId = useAuthStore((s) => s.instanceId);
 
   const current = useQuery({
-    queryKey: ['health-current', instanceId],
+    queryKey: ["health-current", instanceId],
     queryFn: () => (instanceId ? tigHealth.current(instanceId) : null),
     enabled: !!instanceId,
     refetchInterval: 30_000,
   });
 
   const history = useQuery({
-    queryKey: ['health-history', instanceId],
-    queryFn: () => (instanceId ? tigHealth.history(instanceId, '1h') : null),
+    queryKey: ["health-history", instanceId],
+    queryFn: () => (instanceId ? tigHealth.history(instanceId, "1h") : null),
     enabled: !!instanceId,
     refetchInterval: 60_000,
   });
@@ -71,9 +68,13 @@ export function HealthPage() {
   if (!instanceId) {
     return (
       <Stack gap="md">
-        <Title order={3} c={colors.text}>Health</Title>
+        <Title order={3} c={colors.text}>
+          Health
+        </Title>
         <Card radius="md" style={cardStyle} p="xl">
-          <Text size="sm" c={colors.textTertiary}>No Jenkins instance configured.</Text>
+          <Text size="sm" c={colors.textTertiary}>
+            No Jenkins instance configured.
+          </Text>
         </Card>
       </Stack>
     );
@@ -92,9 +93,13 @@ export function HealthPage() {
   if (!h) {
     return (
       <Stack gap="md">
-        <Title order={3} c={colors.text}>Health</Title>
+        <Title order={3} c={colors.text}>
+          Health
+        </Title>
         <Card radius="md" style={cardStyle} p="xl">
-          <Text size="sm" c={colors.textTertiary}>Waiting for first health snapshot...</Text>
+          <Text size="sm" c={colors.textTertiary}>
+            Waiting for first health snapshot...
+          </Text>
         </Card>
       </Stack>
     );
@@ -104,7 +109,9 @@ export function HealthPage() {
 
   return (
     <Stack gap="md">
-      <Title order={3} c={colors.text}>Jenkins Health</Title>
+      <Title order={3} c={colors.text}>
+        Jenkins Health
+      </Title>
 
       <Card radius="md" style={cardStyle} p="md">
         <Group justify="space-between" align="center">
@@ -113,7 +120,7 @@ export function HealthPage() {
               style={{
                 width: 10,
                 height: 10,
-                borderRadius: '50%',
+                borderRadius: "50%",
                 backgroundColor: color,
                 boxShadow: `0 0 8px ${color}80`,
               }}
@@ -124,39 +131,67 @@ export function HealthPage() {
             <Text size="xl" fw={700} style={{ color }}>
               {h.score}
             </Text>
-            <Text size="xs" c={colors.textMuted}>/100</Text>
+            <Text size="xs" c={colors.textMuted}>
+              /100
+            </Text>
           </Group>
           {history.data && <HealthSparkline data={history.data} />}
         </Group>
         {h.issues.length > 0 && (
-          <Text size="xs" c={colors.textTertiary} mt="xs">{h.issues.join(' · ')}</Text>
+          <Text size="xs" c={colors.textTertiary} mt="xs">
+            {h.issues.join(" · ")}
+          </Text>
         )}
       </Card>
 
       <SimpleGrid cols={{ base: 2, md: 4 }}>
         <Card radius="md" style={cardStyle} p="sm">
-          <Text size="xs" c={colors.textTertiary}>Agents</Text>
+          <Text size="xs" c={colors.textTertiary}>
+            Agents
+          </Text>
           <Group gap={4} align="baseline">
-            <Text size="lg" fw={700} c={colors.text}>{h.agentsOnline}</Text>
-            <Text size="xs" c={colors.textMuted}>/ {h.agentsTotal}</Text>
+            <Text size="lg" fw={700} c={colors.text}>
+              {h.agentsOnline}
+            </Text>
+            <Text size="xs" c={colors.textMuted}>
+              / {h.agentsTotal}
+            </Text>
           </Group>
         </Card>
         <Card radius="md" style={cardStyle} p="sm">
-          <Text size="xs" c={colors.textTertiary}>Executors</Text>
+          <Text size="xs" c={colors.textTertiary}>
+            Executors
+          </Text>
           <Group gap={4} align="baseline">
-            <Text size="lg" fw={700} c={colors.text}>{h.executorsBusy}</Text>
-            <Text size="xs" c={colors.textMuted}>/ {h.executorsTotal}</Text>
+            <Text size="lg" fw={700} c={colors.text}>
+              {h.executorsBusy}
+            </Text>
+            <Text size="xs" c={colors.textMuted}>
+              / {h.executorsTotal}
+            </Text>
           </Group>
         </Card>
         <Card radius="md" style={cardStyle} p="sm">
-          <Text size="xs" c={colors.textTertiary}>Queue</Text>
-          <Text size="lg" fw={700} c={h.queueDepth > 10 ? colors.failure : colors.text}>
+          <Text size="xs" c={colors.textTertiary}>
+            Queue
+          </Text>
+          <Text
+            size="lg"
+            fw={700}
+            c={h.queueDepth > 10 ? colors.failure : colors.text}
+          >
             {h.queueDepth}
           </Text>
         </Card>
         <Card radius="md" style={cardStyle} p="sm">
-          <Text size="xs" c={colors.textTertiary}>Stuck</Text>
-          <Text size="lg" fw={700} c={h.stuckBuilds > 0 ? colors.failure : colors.success}>
+          <Text size="xs" c={colors.textTertiary}>
+            Stuck
+          </Text>
+          <Text
+            size="lg"
+            fw={700}
+            c={h.stuckBuilds > 0 ? colors.failure : colors.success}
+          >
             {h.stuckBuilds}
           </Text>
         </Card>

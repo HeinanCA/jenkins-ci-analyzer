@@ -178,19 +178,17 @@ export async function dashboardRoutes(app: FastifyInstance) {
       })
       .from(buildAnalyses);
 
-    // Check if AI is working: are recent analyses missing AI?
-    const recentWithoutAi = await db
-      .select({ id: buildAnalyses.id })
+    // Check if AI is working: is the MOST RECENT analysis missing AI?
+    const [latestAnalysis] = await db
+      .select({
+        aiSummary: buildAnalyses.aiSummary,
+        analyzedAt: buildAnalyses.analyzedAt,
+      })
       .from(buildAnalyses)
-      .where(
-        and(
-          sql`${buildAnalyses.aiSummary} IS NULL`,
-          gte(buildAnalyses.analyzedAt, new Date(Date.now() - 60 * 60 * 1000)),
-        ),
-      )
+      .orderBy(desc(buildAnalyses.analyzedAt))
       .limit(1);
 
-    const aiDown = recentWithoutAi.length > 0;
+    const aiDown = latestAnalysis ? latestAnalysis.aiSummary === null : false;
 
     return {
       data: {

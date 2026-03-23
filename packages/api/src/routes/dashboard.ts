@@ -80,6 +80,8 @@ export async function dashboardRoutes(app: FastifyInstance) {
         jobName: jobs.name,
         jobFullPath: jobs.fullPath,
         jobUrl: jobs.url,
+        gitSha: builds.gitSha,
+        gitRemoteUrl: builds.gitRemoteUrl,
         classification: buildAnalyses.classification,
         confidence: buildAnalyses.confidence,
         matches: buildAnalyses.matches,

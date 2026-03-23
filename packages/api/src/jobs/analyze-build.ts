@@ -6,7 +6,7 @@ import {
   decryptCredentials,
   type EncryptedCredentials,
 } from "../services/credential-vault";
-import { jenkinsGetText } from "../services/jenkins-client";
+import { jenkinsGetText, jenkinsGet } from "../services/jenkins-client";
 import { analyzeLog, classifyFailure, FAILURE_PATTERNS } from "@tig/shared";
 import { analyzeWithAi } from "../services/ai-analyzer";
 
@@ -103,6 +103,44 @@ export const analyzeBuild: Task = async (payload, helpers) => {
     return;
   }
 
+  // Fetch git info (SHA + remote URL) for source linking
+  let gitSha: string | null = null;
+  let gitRemoteUrl: string | null = null;
+  try {
+    const buildApiUrl = jobPathToConsoleUrl(
+      instance.baseUrl,
+      job.fullPath,
+      build.buildNumber,
+    ).replace(
+      "/consoleText",
+      "/api/json?tree=actions[_class,remoteUrls,lastBuiltRevision[branch[SHA1,name]]]",
+    );
+    const buildData = await jenkinsGet<{ actions: Record<string, unknown>[] }>(
+      buildApiUrl,
+      credentials,
+    );
+    for (const action of buildData.actions ?? []) {
+      if (action._class === "hudson.plugins.git.util.BuildData") {
+        const remoteUrls = action.remoteUrls as string[] | undefined;
+        const revision = action.lastBuiltRevision as
+          | { branch?: { SHA1: string; name: string }[] }
+          | undefined;
+        // Pick the one that matches the repo, not the devops-libs
+        if (
+          remoteUrls?.some((u) => u.includes(job.name) || !u.includes("devops"))
+        ) {
+          gitRemoteUrl =
+            remoteUrls.find((u) => !u.includes("devops")) ??
+            remoteUrls[0] ??
+            null;
+          gitSha = revision?.branch?.[0]?.SHA1 ?? null;
+        }
+      }
+    }
+  } catch {
+    // Non-critical — source link won't work but analysis still proceeds
+  }
+
   // Layer 1: Fast regex classification
   const matches = analyzeLog(log, FAILURE_PATTERNS);
   const regexClassification = classifyFailure(matches);
@@ -161,7 +199,7 @@ export const analyzeBuild: Task = async (payload, helpers) => {
 
   await db
     .update(builds)
-    .set({ logFetched: true, logSizeBytes: log.length })
+    .set({ logFetched: true, logSizeBytes: log.length, gitSha, gitRemoteUrl })
     .where(eq(builds.id, buildId));
 
   if (aiResult && aiUsage) {

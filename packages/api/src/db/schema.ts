@@ -192,6 +192,8 @@ export const builds = pgTable(
     estimatedDurationMs: integer("estimated_duration_ms"),
     logFetched: boolean("log_fetched").default(false).notNull(),
     logSizeBytes: integer("log_size_bytes"),
+    gitSha: text("git_sha"),
+    gitRemoteUrl: text("git_remote_url"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),

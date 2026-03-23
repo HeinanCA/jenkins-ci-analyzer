@@ -143,6 +143,14 @@ export async function analyzeWithAi(
     return { result: null, usage: null, logStats };
   }
 
+  // Hard cap: Haiku's context is 200K tokens (~800K chars).
+  // Keep first 20K + last 180K chars of filtered log if still too large.
+  const MAX_FILTERED_CHARS = 500_000;
+  const cappedLog =
+    filteredLog.length > MAX_FILTERED_CHARS
+      ? `${filteredLog.slice(0, 50_000)}\n\n[... ${filteredLog.length - 500_000} chars truncated after noise filtering ...]\n\n${filteredLog.slice(-450_000)}`
+      : filteredLog;
+
   const buildContext = detectBuildContext(jobName);
 
   const userMessage = [
@@ -156,7 +164,7 @@ export async function analyzeWithAi(
     ``,
     `Build log:`,
     `\`\`\``,
-    filteredLog,
+    cappedLog,
     `\`\`\``,
   ]
     .filter(Boolean)

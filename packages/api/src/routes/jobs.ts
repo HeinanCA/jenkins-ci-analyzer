@@ -1,24 +1,24 @@
-import type { FastifyInstance } from 'fastify';
-import { eq, and, desc, sql } from 'drizzle-orm';
-import { db } from '../db/connection';
-import { jobs, builds, buildAnalyses, ciInstances } from '../db/schema';
-import { requireAuth } from '../middleware/auth';
+import type { FastifyInstance } from "fastify";
+import { eq, and, desc, sql } from "drizzle-orm";
+import { db } from "../db/connection";
+import { jobs, builds, buildAnalyses, ciInstances } from "../db/schema";
+import { requireAuth } from "../middleware/auth";
 import {
   decryptCredentials,
   type EncryptedCredentials,
-} from '../services/credential-vault';
-import { jenkinsGetText } from '../services/jenkins-client';
+} from "../services/credential-vault";
+import { jenkinsGetText } from "../services/jenkins-client";
 
 export async function jobRoutes(app: FastifyInstance) {
-  app.addHook('preHandler', requireAuth);
+  app.addHook("preHandler", requireAuth);
 
   // List jobs for an instance
   app.get<{
     Params: { instanceId: string };
     Querystring: { status?: string; limit?: string; offset?: string };
-  }>('/api/v1/instances/:instanceId/jobs', async (request) => {
+  }>("/api/v1/instances/:instanceId/jobs", async (request) => {
     const { instanceId } = request.params;
-    const limit = Math.min(Number(request.query.limit ?? 100), 500);
+    const limit = Math.min(Number(request.query.limit ?? 100), 2000);
     const offset = Number(request.query.offset ?? 0);
     const status = request.query.status;
 
@@ -37,9 +37,7 @@ export async function jobRoutes(app: FastifyInstance) {
         and(
           eq(jobs.ciInstanceId, instanceId),
           eq(jobs.isActive, true),
-          status === 'failing'
-            ? sql`${jobs.color} LIKE 'red%'`
-            : undefined,
+          status === "failing" ? sql`${jobs.color} LIKE 'red%'` : undefined,
         ),
       )
       .orderBy(jobs.fullPath)
@@ -59,7 +57,7 @@ export async function jobRoutes(app: FastifyInstance) {
   app.get<{
     Params: { jobId: string };
     Querystring: { limit?: string };
-  }>('/api/v1/jobs/:jobId/builds', async (request, reply) => {
+  }>("/api/v1/jobs/:jobId/builds", async (request, reply) => {
     const { jobId } = request.params;
     const limit = Math.min(Number(request.query.limit ?? 25), 100);
 
@@ -70,7 +68,7 @@ export async function jobRoutes(app: FastifyInstance) {
       .limit(1);
 
     if (!job) {
-      return reply.status(404).send({ data: null, error: 'Job not found' });
+      return reply.status(404).send({ data: null, error: "Job not found" });
     }
 
     const result = await db
@@ -91,7 +89,7 @@ export async function jobRoutes(app: FastifyInstance) {
 
   // Get single build with analysis
   app.get<{ Params: { buildId: string } }>(
-    '/api/v1/builds/:buildId',
+    "/api/v1/builds/:buildId",
     async (request, reply) => {
       const [build] = await db
         .select({
@@ -107,9 +105,7 @@ export async function jobRoutes(app: FastifyInstance) {
         .limit(1);
 
       if (!build) {
-        return reply
-          .status(404)
-          .send({ data: null, error: 'Build not found' });
+        return reply.status(404).send({ data: null, error: "Build not found" });
       }
 
       const [analysis] = await db
@@ -136,7 +132,7 @@ export async function jobRoutes(app: FastifyInstance) {
 
   // Get build log (proxied through backend)
   app.get<{ Params: { buildId: string } }>(
-    '/api/v1/builds/:buildId/log',
+    "/api/v1/builds/:buildId/log",
     async (request, reply) => {
       const [build] = await db
         .select({
@@ -149,9 +145,7 @@ export async function jobRoutes(app: FastifyInstance) {
         .limit(1);
 
       if (!build) {
-        return reply
-          .status(404)
-          .send({ data: null, error: 'Build not found' });
+        return reply.status(404).send({ data: null, error: "Build not found" });
       }
 
       const [job] = await db
@@ -164,7 +158,7 @@ export async function jobRoutes(app: FastifyInstance) {
         .limit(1);
 
       if (!job) {
-        return reply.status(404).send({ data: null, error: 'Job not found' });
+        return reply.status(404).send({ data: null, error: "Job not found" });
       }
 
       const [instance] = await db
@@ -179,25 +173,25 @@ export async function jobRoutes(app: FastifyInstance) {
       if (!instance) {
         return reply
           .status(404)
-          .send({ data: null, error: 'Instance not found' });
+          .send({ data: null, error: "Instance not found" });
       }
 
       const credentials = decryptCredentials(
         instance.credentials as EncryptedCredentials,
       );
 
-      const segments = job.fullPath.split('/');
+      const segments = job.fullPath.split("/");
       const jenkinsPath = segments
         .map((s) => `job/${encodeURIComponent(s)}`)
-        .join('/');
+        .join("/");
       const url = `${instance.baseUrl}/${jenkinsPath}/${build.buildNumber}/consoleText`;
 
       try {
         const log = await jenkinsGetText(url, credentials);
-        return reply.type('text/plain').send(log);
+        return reply.type("text/plain").send(log);
       } catch (error) {
         const message =
-          error instanceof Error ? error.message : 'Failed to fetch log';
+          error instanceof Error ? error.message : "Failed to fetch log";
         return reply.status(502).send({ data: null, error: message });
       }
     },

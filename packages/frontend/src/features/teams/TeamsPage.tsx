@@ -133,7 +133,7 @@ export function TeamsPage() {
     queryFn: async () => {
       if (!instanceId) return [];
       const response = await fetch(
-        `/api/v1/instances/${instanceId}/jobs?limit=500`,
+        `/api/v1/instances/${instanceId}/jobs?limit=2000`,
         {
           credentials: "include",
         },

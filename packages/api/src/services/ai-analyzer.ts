@@ -68,34 +68,37 @@ export interface AiAnalysisResponse {
 }
 
 function createClient(): Anthropic | AnthropicBedrock | null {
-  const bedrockApiKey = process.env["AWS_BEARER_TOKEN_BEDROCK"];
-  if (bedrockApiKey) {
-    const awsRegion = process.env["AWS_REGION"] ?? "us-east-1";
-    return new AnthropicBedrock({ awsRegion });
-  }
-
-  const awsRegion =
-    process.env["AWS_REGION"] ?? process.env["AWS_DEFAULT_REGION"];
-  if (awsRegion && process.env["AWS_ACCESS_KEY_ID"]) {
-    return new AnthropicBedrock({ awsRegion });
-  }
-
+  // Option 1: Direct Anthropic API key
   const apiKey = process.env["ANTHROPIC_API_KEY"];
   if (apiKey) {
     return new Anthropic({ apiKey });
+  }
+
+  // Option 2: AWS Bedrock — let the SDK resolve credentials from:
+  // - env vars (AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY)
+  // - SSO cache (~/.aws/sso/cache/)
+  // - IAM role (EC2/ECS)
+  // - any other AWS credential provider chain
+  const awsRegion =
+    process.env["AWS_REGION"] ??
+    process.env["AWS_DEFAULT_REGION"] ??
+    "us-east-1";
+  if (awsRegion) {
+    return new AnthropicBedrock({ awsRegion });
   }
 
   return null;
 }
 
 function getModelId(): string {
-  if (process.env["AWS_REGION"] && !process.env["ANTHROPIC_API_KEY"]) {
-    return (
-      process.env["BEDROCK_MODEL_ID"] ??
-      "us.anthropic.claude-haiku-4-5-20251001-v1:0"
-    );
+  if (process.env["ANTHROPIC_API_KEY"]) {
+    return "claude-haiku-4-5-20251001";
   }
-  return "claude-haiku-4-5-20251001";
+  // Bedrock model ID
+  return (
+    process.env["BEDROCK_MODEL_ID"] ??
+    "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+  );
 }
 
 function calculateCost(inputTokens: number, outputTokens: number): number {

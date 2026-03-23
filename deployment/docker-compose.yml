@@ -36,15 +36,12 @@ services:
       context: ..
       dockerfile: deployment/Dockerfile
       target: worker
+    volumes:
+      - ${HOME}/.aws:/root/.aws:ro
     environment:
       DATABASE_URL: postgres://tig:tig@postgres:5432/tig
       TIG_ENCRYPTION_KEY: "${TIG_ENCRYPTION_KEY:-change-me-in-production-32chars!}"
-      ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-}"
-      AWS_BEARER_TOKEN_BEDROCK: "${AWS_BEARER_TOKEN_BEDROCK:-}"
-      AWS_REGION: "${AWS_REGION:-}"
-      AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID:-}"
-      AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY:-}"
-      AWS_SESSION_TOKEN: "${AWS_SESSION_TOKEN:-}"
+      AWS_REGION: "${AWS_REGION:-us-east-1}"
     depends_on:
       postgres:
         condition: service_healthy

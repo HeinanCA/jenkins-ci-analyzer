@@ -166,7 +166,7 @@ export async function dashboardRoutes(app: FastifyInstance) {
     return { data: snapshots, error: null };
   });
 
-  // AI cost tracking
+  // AI cost tracking + status
   app.get("/api/v1/dashboard/ai-cost", async () => {
     const [result] = await db
       .select({
@@ -178,6 +178,20 @@ export async function dashboardRoutes(app: FastifyInstance) {
       })
       .from(buildAnalyses);
 
+    // Check if AI is working: are recent analyses missing AI?
+    const recentWithoutAi = await db
+      .select({ id: buildAnalyses.id })
+      .from(buildAnalyses)
+      .where(
+        and(
+          sql`${buildAnalyses.aiSummary} IS NULL`,
+          gte(buildAnalyses.analyzedAt, new Date(Date.now() - 60 * 60 * 1000)),
+        ),
+      )
+      .limit(1);
+
+    const aiDown = recentWithoutAi.length > 0;
+
     return {
       data: {
         totalCostUsd: Number(result.totalCost ?? 0),
@@ -188,6 +202,7 @@ export async function dashboardRoutes(app: FastifyInstance) {
         avgCostPerAnalysis: result.aiCount
           ? Number(result.totalCost ?? 0) / Number(result.aiCount)
           : 0,
+        aiStatus: aiDown ? "degraded" : "healthy",
       },
       error: null,
     };

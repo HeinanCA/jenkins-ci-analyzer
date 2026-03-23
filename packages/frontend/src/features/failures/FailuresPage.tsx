@@ -183,10 +183,16 @@ export function FailuresPage() {
                             : "Code"}
                         </Badge>
                       )}
-                      {hasAi && (
+                      {hasAi ? (
                         <Badge size="xs" variant="light" color="violet">
                           AI
                         </Badge>
+                      ) : (
+                        <Tooltip label="AI was offline. Classification may be inaccurate.">
+                          <Badge size="xs" variant="light" color="gray">
+                            regex
+                          </Badge>
+                        </Tooltip>
                       )}
                     </Group>
                   </Group>

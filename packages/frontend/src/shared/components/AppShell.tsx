@@ -43,7 +43,24 @@ function AiCostBadge() {
     queryFn: () => tigAiCost.get(),
     refetchInterval: 60_000,
   });
-  if (!data || data.totalCostUsd === 0) return null;
+  if (!data) return null;
+
+  const aiDown = (data as Record<string, unknown>).aiStatus === "degraded";
+
+  if (aiDown) {
+    return (
+      <Tooltip
+        label="AI analysis is not running. Recent failures have reduced accuracy. Check AWS credentials."
+        w={300}
+      >
+        <Text size="xs" c="#f87171" fw={600} style={{ cursor: "default" }}>
+          ⚠ AI offline
+        </Text>
+      </Tooltip>
+    );
+  }
+
+  if (data.totalCostUsd === 0) return null;
   return (
     <Tooltip
       label={`${data.aiAnalyzedCount} builds analyzed · ~$${data.avgCostPerAnalysis.toFixed(4)}/build`}

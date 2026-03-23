@@ -13,6 +13,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { useAuthStore } from "../../store/auth-store";
 import { tigAiCost, tigDashboard } from "../../api/tig-client";
+import { colors } from "../../theme/mantine-theme";
 
 const NAV_ITEMS = [
   { label: "Dashboard", path: "/" },
@@ -93,31 +94,31 @@ export function AppShellLayout() {
       header={{ height: 52 }}
       padding="md"
       styles={{
-        main: { backgroundColor: "#0f1117", minHeight: "100vh" },
+        main: { backgroundColor: colors.bg, minHeight: "100vh" },
         header: {
-          backgroundColor: "#0f1117",
-          borderBottom: "1px solid #1e2030",
+          backgroundColor: colors.bg,
+          borderBottom: `1px solid ${colors.surface}`,
         },
         navbar: {
-          backgroundColor: "#0f1117",
-          borderRight: "1px solid #1e2030",
+          backgroundColor: colors.bg,
+          borderRight: `1px solid ${colors.surface}`,
         },
       }}
     >
       <MantineAppShell.Header>
         <Group h="100%" px="md" justify="space-between">
           <Group gap="xs">
-            <Title order={4} c="#e2e8f0">
+            <Title order={4} c={colors.text}>
               PulsCI
             </Title>
-            <Text size="xs" c="#475569">
+            <Text size="xs" c={colors.textMuted}>
               by That Infrastructure Guy
             </Text>
           </Group>
           <Group gap="sm">
             <AiCostBadge />
             {user && (
-              <Text size="xs" c="#64748b">
+              <Text size="xs" c={colors.textTertiary}>
                 {user.name}
               </Text>
             )}
@@ -148,15 +149,18 @@ export function AppShellLayout() {
                   cursor: "pointer",
                   padding: "8px 12px",
                   borderRadius: 6,
-                  backgroundColor: isActive ? "#1e2030" : "transparent",
-                  transition: "background-color 0.1s",
+                  backgroundColor: isActive ? colors.surface : "transparent",
+                  borderLeft: isActive
+                    ? `3px solid ${colors.accent}`
+                    : "3px solid transparent",
+                  transition: "all 0.1s",
                 }}
               >
                 <Group justify="space-between">
                   <Text
                     size="sm"
                     fw={isActive ? 600 : 400}
-                    c={isActive ? "#e2e8f0" : "#64748b"}
+                    c={isActive ? colors.text : colors.textTertiary}
                   >
                     {item.label}
                   </Text>

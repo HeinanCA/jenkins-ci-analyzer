@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Stack,
   Title,
@@ -14,11 +14,11 @@ import {
   Loader,
   Checkbox,
   ScrollArea,
-} from '@mantine/core';
-import { tigTeams, tigJobs } from '../../api/tig-client';
-import { useAuthStore } from '../../store/auth-store';
+} from "@mantine/core";
+import { tigTeams } from "../../api/tig-client";
+import { useAuthStore } from "../../store/auth-store";
 
-const CARD = { backgroundColor: '#1e2030', border: 'none' };
+const CARD = { backgroundColor: "#1e2030", border: "none" };
 
 interface FolderNode {
   name: string;
@@ -27,19 +27,17 @@ interface FolderNode {
   jobCount: number;
 }
 
-function buildFolderTree(
-  jobs: { fullPath: string }[],
-): FolderNode[] {
+function buildFolderTree(jobs: { fullPath: string }[]): FolderNode[] {
   const root: FolderNode[] = [];
 
   for (const job of jobs) {
-    const parts = job.fullPath.split('/');
+    const parts = job.fullPath.split("/");
     // We want folders, not leaf jobs — use all but the last segment
     if (parts.length < 2) continue;
     const folderParts = parts.slice(0, -1);
 
     let current = root;
-    let currentPath = '';
+    let currentPath = "";
     for (const part of folderParts) {
       currentPath = currentPath ? `${currentPath}/${part}` : part;
       let node = current.find((n) => n.name === part);
@@ -74,16 +72,21 @@ function FolderCheckboxes({
             size="xs"
             label={
               <Group gap={6}>
-                <Text size="xs" c={selected.has(node.path + '/**') ? '#e2e8f0' : '#94a3b8'}>
+                <Text
+                  size="xs"
+                  c={selected.has(node.path + "/**") ? "#e2e8f0" : "#94a3b8"}
+                >
                   {node.name}
                 </Text>
-                <Text size="xs" c="#475569">{node.jobCount} jobs</Text>
+                <Text size="xs" c="#475569">
+                  {node.jobCount} jobs
+                </Text>
               </Group>
             }
-            checked={selected.has(node.path + '/**')}
-            onChange={() => onToggle(node.path + '/**')}
+            checked={selected.has(node.path + "/**")}
+            onChange={() => onToggle(node.path + "/**")}
             styles={{
-              input: { backgroundColor: '#161822', borderColor: '#2d3148' },
+              input: { backgroundColor: "#161822", borderColor: "#2d3148" },
             }}
           />
           {node.children.length > 0 && (
@@ -106,30 +109,35 @@ export function TeamsPage() {
   const orgId = useAuthStore((s) => s.organizationId);
 
   const [creating, setCreating] = useState(false);
-  const [newName, setNewName] = useState('');
-  const [selectedPatterns, setSelectedPatterns] = useState<Set<string>>(new Set());
+  const [newName, setNewName] = useState("");
+  const [selectedPatterns, setSelectedPatterns] = useState<Set<string>>(
+    new Set(),
+  );
 
   const { data: teams, isLoading } = useQuery({
-    queryKey: ['teams'],
+    queryKey: ["teams"],
     queryFn: () => tigTeams.list(),
   });
 
   // Fetch all jobs to build the folder tree
   const { data: allJobs } = useQuery({
-    queryKey: ['all-jobs-for-tree', instanceId],
-    queryFn: () => (instanceId ? tigTeams.jobs('__all__').catch(() => []) : []),
+    queryKey: ["all-jobs-for-tree", instanceId],
+    queryFn: () => (instanceId ? tigTeams.jobs("__all__").catch(() => []) : []),
     enabled: !!instanceId && creating,
   });
 
   // Actually, we need all jobs from the instance, not from a team.
   // Let me use the instance jobs endpoint instead
   const { data: instanceJobs } = useQuery({
-    queryKey: ['instance-jobs', instanceId],
+    queryKey: ["instance-jobs", instanceId],
     queryFn: async () => {
       if (!instanceId) return [];
-      const response = await fetch(`/api/v1/instances/${instanceId}/jobs?limit=500`, {
-        credentials: 'include',
-      });
+      const response = await fetch(
+        `/api/v1/instances/${instanceId}/jobs?limit=500`,
+        {
+          credentials: "include",
+        },
+      );
       if (!response.ok) return [];
       const json = await response.json();
       return json.data ?? [];
@@ -160,9 +168,9 @@ export function TeamsPage() {
         folderPatterns: Array.from(selectedPatterns),
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['teams'] });
+      queryClient.invalidateQueries({ queryKey: ["teams"] });
       setCreating(false);
-      setNewName('');
+      setNewName("");
       setSelectedPatterns(new Set());
     },
   });
@@ -170,7 +178,7 @@ export function TeamsPage() {
   const deleteMutation = useMutation({
     mutationFn: (id: string) => tigTeams.delete(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['teams'] });
+      queryClient.invalidateQueries({ queryKey: ["teams"] });
     },
   });
 
@@ -185,7 +193,9 @@ export function TeamsPage() {
   return (
     <Stack gap="md">
       <Group justify="space-between">
-        <Title order={3} c="#e2e8f0">Teams</Title>
+        <Title order={3} c="#e2e8f0">
+          Teams
+        </Title>
         {!creating && (
           <Button size="xs" onClick={() => setCreating(true)}>
             New Team
@@ -196,16 +206,20 @@ export function TeamsPage() {
       {creating && (
         <Card radius="md" style={CARD} p="md">
           <Stack gap="sm">
-            <Text size="sm" fw={600} c="#e2e8f0">Create Team</Text>
+            <Text size="sm" fw={600} c="#e2e8f0">
+              Create Team
+            </Text>
             <TextInput
               placeholder="Team name (e.g., Backend, Frontend, Automation)"
               value={newName}
               onChange={(e) => setNewName(e.currentTarget.value)}
-              styles={{ input: { backgroundColor: '#161822', border: 'none' } }}
+              styles={{ input: { backgroundColor: "#161822", border: "none" } }}
             />
-            <Text size="xs" c="#94a3b8" fw={500}>Select folders this team owns:</Text>
+            <Text size="xs" c="#94a3b8" fw={500}>
+              Select folders this team owns:
+            </Text>
             <ScrollArea h={300} type="auto">
-              <Card radius="md" p="sm" style={{ backgroundColor: '#161822' }}>
+              <Card radius="md" p="sm" style={{ backgroundColor: "#161822" }}>
                 {folderTree.length > 0 ? (
                   <FolderCheckboxes
                     nodes={folderTree}
@@ -214,14 +228,18 @@ export function TeamsPage() {
                     depth={0}
                   />
                 ) : (
-                  <Text size="xs" c="#475569">Loading folder structure...</Text>
+                  <Text size="xs" c="#475569">
+                    Loading folder structure...
+                  </Text>
                 )}
               </Card>
             </ScrollArea>
             {selectedPatterns.size > 0 && (
               <Group gap={4}>
                 {Array.from(selectedPatterns).map((p) => (
-                  <Badge key={p} size="xs" variant="light" color="blue">{p}</Badge>
+                  <Badge key={p} size="xs" variant="light" color="blue">
+                    {p}
+                  </Badge>
                 ))}
               </Group>
             )}
@@ -234,7 +252,15 @@ export function TeamsPage() {
               >
                 Create
               </Button>
-              <Button size="xs" variant="subtle" color="gray" onClick={() => { setCreating(false); setSelectedPatterns(new Set()); }}>
+              <Button
+                size="xs"
+                variant="subtle"
+                color="gray"
+                onClick={() => {
+                  setCreating(false);
+                  setSelectedPatterns(new Set());
+                }}
+              >
                 Cancel
               </Button>
             </Group>
@@ -245,9 +271,12 @@ export function TeamsPage() {
       {(!teams || teams.length === 0) && !creating && (
         <Card radius="md" style={CARD} p="xl">
           <Stack align="center" gap="xs">
-            <Text size="sm" c="#64748b">No teams yet</Text>
+            <Text size="sm" c="#64748b">
+              No teams yet
+            </Text>
             <Text size="xs" c="#475569">
-              Create teams to scope failures by project. Developers see only what's theirs.
+              Create teams to scope failures by project. Developers see only
+              what's theirs.
             </Text>
           </Stack>
         </Card>
@@ -259,10 +288,14 @@ export function TeamsPage() {
             <Card key={team.id} radius="md" style={CARD} p="sm">
               <Group justify="space-between">
                 <Stack gap={2}>
-                  <Text size="sm" fw={500} c="#e2e8f0">{team.name}</Text>
+                  <Text size="sm" fw={500} c="#e2e8f0">
+                    {team.name}
+                  </Text>
                   <Group gap={4}>
                     {team.folderPatterns.map((p, i) => (
-                      <Badge key={i} size="xs" variant="light" color="blue">{p}</Badge>
+                      <Badge key={i} size="xs" variant="light" color="blue">
+                        {p}
+                      </Badge>
                     ))}
                   </Group>
                 </Stack>

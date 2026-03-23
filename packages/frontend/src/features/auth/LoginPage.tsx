@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { colors } from "../../theme/mantine-theme";
 import {
   Stack,
   Title,
@@ -70,8 +71,7 @@ export function LoginPage() {
     <Box
       mih="100vh"
       style={{
-        background:
-          "linear-gradient(135deg, #0a0a0f 0%, #1a1a2e 50%, #0f3460 100%)",
+        background: `linear-gradient(135deg, ${colors.bg} 0%, ${colors.gradientMid} 50%, ${colors.gradientEnd} 100%)`,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -92,8 +92,7 @@ export function LoginPage() {
               <Title
                 order={2}
                 style={{
-                  background:
-                    "linear-gradient(135deg, #e2e8f0, #60a5fa, #a78bfa)",
+                  background: `linear-gradient(135deg, ${colors.text}, ${colors.info}, ${colors.accent})`,
                   WebkitBackgroundClip: "text",
                   WebkitTextFillColor: "transparent",
                 }}

@@ -6,6 +6,7 @@ import { organizationRoutes } from "./routes/organizations";
 import { instanceRoutes } from "./routes/instances";
 import { jobRoutes } from "./routes/jobs";
 import { dashboardRoutes } from "./routes/dashboard";
+import { teamRoutes } from "./routes/teams";
 import http from "node:http";
 
 const PORT = Number(process.env["PORT"] ?? 3000);
@@ -50,6 +51,7 @@ await app.register(organizationRoutes);
 await app.register(instanceRoutes);
 await app.register(jobRoutes);
 await app.register(dashboardRoutes);
+await app.register(teamRoutes);
 
 // Health
 app.get("/health", async () => ({

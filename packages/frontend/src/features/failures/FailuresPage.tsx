@@ -8,6 +8,7 @@ import {
   Loader,
   Code,
   Accordion,
+  Select,
   List,
   Card,
   Group,
@@ -17,7 +18,7 @@ import {
   Tooltip,
   CopyButton,
 } from "@mantine/core";
-import { tigDashboard } from "../../api/tig-client";
+import { tigDashboard, tigTeams } from "../../api/tig-client";
 import { useAuthStore } from "../../store/auth-store";
 
 const CARD = { backgroundColor: "#1e2030", border: "none" };
@@ -27,10 +28,17 @@ type Filter = "all" | "code" | "infrastructure";
 export function FailuresPage() {
   const instanceId = useAuthStore((s) => s.instanceId);
   const [filter, setFilter] = useState<Filter>("all");
+  const [teamId, setTeamId] = useState<string | null>(null);
+
+  const { data: teamsData } = useQuery({
+    queryKey: ["teams"],
+    queryFn: () => tigTeams.list(),
+  });
 
   const { data, isLoading } = useQuery({
-    queryKey: ["all-failures", instanceId],
-    queryFn: () => tigDashboard.failures(instanceId ?? undefined, 50),
+    queryKey: ["all-failures", instanceId, teamId],
+    queryFn: () =>
+      tigDashboard.failures(instanceId ?? undefined, 50, teamId ?? undefined),
     refetchInterval: 30_000,
   });
 
@@ -58,9 +66,28 @@ export function FailuresPage() {
   return (
     <Stack gap="md">
       <Group justify="space-between">
-        <Title order={3} c="#e2e8f0">
-          Failures
-        </Title>
+        <Group gap="sm">
+          <Title order={3} c="#e2e8f0">
+            Failures
+          </Title>
+          {teamsData && teamsData.length > 0 && (
+            <Select
+              size="xs"
+              placeholder="All teams"
+              clearable
+              value={teamId}
+              onChange={setTeamId}
+              data={teamsData.map((t) => ({ value: t.id, label: t.name }))}
+              styles={{
+                input: {
+                  backgroundColor: "#1e2030",
+                  border: "none",
+                  minWidth: 130,
+                },
+              }}
+            />
+          )}
+        </Group>
         <SegmentedControl
           size="xs"
           value={filter}

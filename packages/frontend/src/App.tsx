@@ -7,6 +7,7 @@ import { LoginPage } from './features/auth/LoginPage';
 import { DashboardPage } from './features/dashboard/DashboardPage';
 import { FailuresPage } from './features/failures/FailuresPage';
 import { HealthPage } from './features/health/HealthPage';
+import { TeamsPage } from './features/teams/TeamsPage';
 import { AppShellLayout } from './shared/components/AppShell';
 import '@mantine/core/styles.css';
 
@@ -43,6 +44,7 @@ export default function App() {
               <Route path="/" element={<DashboardPage />} />
               <Route path="/failures" element={<FailuresPage />} />
               <Route path="/health" element={<HealthPage />} />
+              <Route path="/teams" element={<TeamsPage />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

@@ -18,6 +18,7 @@ const NAV_ITEMS = [
   { label: "Dashboard", path: "/" },
   { label: "Failures", path: "/failures" },
   { label: "Health", path: "/health" },
+  { label: "Teams", path: "/teams" },
 ] as const;
 
 function FailureCount() {

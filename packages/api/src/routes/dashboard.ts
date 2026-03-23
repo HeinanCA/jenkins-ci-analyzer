@@ -1,7 +1,14 @@
 import type { FastifyInstance } from "fastify";
 import { eq, and, desc, sql, sum, count, gte } from "drizzle-orm";
 import { db } from "../db/connection";
-import { jobs, builds, buildAnalyses, healthSnapshots } from "../db/schema";
+import {
+  jobs,
+  builds,
+  buildAnalyses,
+  healthSnapshots,
+  teams,
+} from "../db/schema";
+import { jobMatchesTeam } from "./teams";
 import { requireAuth } from "../middleware/auth";
 
 export async function dashboardRoutes(app: FastifyInstance) {
@@ -37,12 +44,31 @@ export async function dashboardRoutes(app: FastifyInstance) {
 
   // Recent failures with analysis
   app.get<{
-    Querystring: { instance_id?: string; limit?: string; days?: string };
+    Querystring: {
+      instance_id?: string;
+      team_id?: string;
+      limit?: string;
+      days?: string;
+    };
   }>("/api/v1/dashboard/failures", async (request) => {
     const instanceId = request.query.instance_id;
+    const teamId = request.query.team_id;
     const limit = Math.min(Number(request.query.limit ?? 50), 100);
     const days = Number(request.query.days ?? 3);
     const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+    // Load team patterns if filtering by team
+    let teamPatterns: string[] | null = null;
+    if (teamId) {
+      const [team] = await db
+        .select({ folderPatterns: teams.folderPatterns })
+        .from(teams)
+        .where(eq(teams.id, teamId))
+        .limit(1);
+      if (team) {
+        teamPatterns = team.folderPatterns;
+      }
+    }
 
     const failures = await db
       .select({
@@ -76,7 +102,12 @@ export async function dashboardRoutes(app: FastifyInstance) {
       .orderBy(desc(builds.startedAt))
       .limit(limit);
 
-    return { data: failures, error: null };
+    // Filter by team patterns if specified
+    const filtered = teamPatterns
+      ? failures.filter((f) => jobMatchesTeam(f.jobFullPath, teamPatterns))
+      : failures;
+
+    return { data: filtered, error: null };
   });
 
   // Health — current snapshot for an instance

@@ -28,11 +28,14 @@ function FailureCount() {
     queryFn: () => tigDashboard.failures(instanceId ?? undefined, 50),
     refetchInterval: 30_000,
   });
-  const count = data?.length ?? 0;
-  if (count === 0) return null;
+  // Count unique jobs, not individual builds
+  const jobPaths = new Set(
+    (data ?? []).map((f: Record<string, unknown>) => f.jobFullPath),
+  );
+  if (jobPaths.size === 0) return null;
   return (
     <Badge size="xs" color="red" variant="filled">
-      {count}
+      {jobPaths.size}
     </Badge>
   );
 }

@@ -83,8 +83,9 @@ export function LoginPage() {
           p="xl"
           radius="md"
           style={{
-            backgroundColor: "rgba(255,255,255,0.03)",
-            borderColor: "rgba(255,255,255,0.08)",
+            backgroundColor: colors.surface,
+            borderColor: colors.border,
+            boxShadow: "0 4px 24px rgba(0, 0, 0, 0.4)",
           }}
         >
           <Stack gap="md">
@@ -92,7 +93,7 @@ export function LoginPage() {
               <Title
                 order={2}
                 style={{
-                  background: `linear-gradient(135deg, ${colors.text}, ${colors.info}, ${colors.accent})`,
+                  background: colors.accentGradient,
                   WebkitBackgroundClip: "text",
                   WebkitTextFillColor: "transparent",
                 }}

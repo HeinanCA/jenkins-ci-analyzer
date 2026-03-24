@@ -1,24 +1,39 @@
-import { createTheme } from "@mantine/core";
+import { createTheme } from '@mantine/core';
 
-// PulsCI color palette — single source of truth
+// ─── Atmosphere Theme ───────────────────────────────────────
+// Deep, layered, alive. The product breathes.
+
 export const colors = {
-  bg: "#0f1117",
-  surface: "#1e2030",
-  surfaceLight: "#161822",
-  border: "#2d3148",
-  text: "#e2e8f0",
-  textSecondary: "#94a3b8",
-  textTertiary: "#64748b",
-  textMuted: "#475569",
-  lineNumber: "#666666",
-  success: "#34d399",
-  failure: "#f87171",
-  critical: "#ef4444",
-  warning: "#fbbf24",
-  info: "#60a5fa",
-  accent: "#a78bfa",
-  gradientMid: "#1a1a2e",
-  gradientEnd: "#0f3460",
+  // Backgrounds — deep navy-black with depth
+  bg: '#0C0E16',
+  bgGradient: 'linear-gradient(180deg, #0C0E16 0%, #111420 100%)',
+  surface: '#161926',
+  surfaceHover: '#1C1F2E',
+  surfaceLight: '#121520',
+  border: 'rgba(255, 255, 255, 0.06)',
+  borderHover: 'rgba(255, 255, 255, 0.1)',
+
+  // Text
+  text: '#E4E6EF',
+  textSecondary: '#9194A5',
+  textTertiary: '#6B6F85',
+  textMuted: '#4A4E63',
+
+  // Status
+  success: '#51E2B4',
+  failure: '#FF6B6B',
+  critical: '#EF4444',
+  warning: '#FBBF24',
+  info: '#60A5FA',
+
+  // Accent — violet to lavender
+  accent: '#6C5CE7',
+  accentLight: '#A78BFA',
+  accentGradient: 'linear-gradient(135deg, #6C5CE7, #A78BFA)',
+
+  // Gradients for login/special pages
+  gradientMid: '#111420',
+  gradientEnd: '#0f1a3a',
 } as const;
 
 export const HEALTH_COLORS: Record<string, string> = {
@@ -28,24 +43,36 @@ export const HEALTH_COLORS: Record<string, string> = {
   down: colors.critical,
 } as const;
 
+// Status bar gradient for card top edges
+export function statusGradient(color: string): string {
+  return `linear-gradient(90deg, ${color}, transparent)`;
+}
+
 export const cardStyle = {
   backgroundColor: colors.surface,
-  border: "none",
+  border: `1px solid ${colors.border}`,
+  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
+} as const;
+
+export const cardHoverStyle = {
+  ...cardStyle,
+  borderColor: colors.borderHover,
 } as const;
 
 export const codeStyle = {
   backgroundColor: colors.surfaceLight,
-  border: "none",
+  border: `1px solid ${colors.border}`,
   fontSize: 12,
 } as const;
 
 export const theme = createTheme({
-  primaryColor: "violet",
-  defaultRadius: "md",
+  primaryColor: 'violet',
+  defaultRadius: 'md',
   fontFamily:
-    '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+    '"Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
   headings: {
     fontFamily:
-      '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+      '"Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+    fontWeight: '700',
   },
 });

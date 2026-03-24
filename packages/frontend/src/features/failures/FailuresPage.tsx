@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   Stack,
   Title,
@@ -13,45 +13,54 @@ import {
   SegmentedControl,
   Tooltip,
   Divider,
-} from '@mantine/core';
-import { tigDashboard, tigTeams } from '../../api/tig-client';
-import { useAuthStore } from '../../store/auth-store';
-import { colors, cardStyle } from '../../theme/mantine-theme';
-import { groupByJob } from './utils/group-by-job';
-import { FailureDetail } from './components/FailureDetail';
-import type { FailureEntry } from './types';
+} from "@mantine/core";
+import { tigDashboard, tigTeams } from "../../api/tig-client";
+import { useAuthStore } from "../../store/auth-store";
+import { colors, cardStyle, statusGradient } from "../../theme/mantine-theme";
+import { groupByJob } from "./utils/group-by-job";
+import { FailureDetail } from "./components/FailureDetail";
+import type { FailureEntry } from "./types";
 
-type Filter = 'all' | 'code' | 'infrastructure';
+type Filter = "all" | "code" | "infrastructure";
 
 export function FailuresPage() {
   const instanceId = useAuthStore((s) => s.instanceId);
-  const [filter, setFilter] = useState<Filter>('all');
+  const [filter, setFilter] = useState<Filter>("all");
   const [teamId, setTeamId] = useState<string | null>(null);
 
   const { data: teamsData } = useQuery({
-    queryKey: ['teams'],
+    queryKey: ["teams"],
     queryFn: () => tigTeams.list(),
   });
 
   const { data, isLoading } = useQuery({
-    queryKey: ['all-failures', instanceId, teamId],
-    queryFn: () => tigDashboard.failures(instanceId ?? undefined, 50, teamId ?? undefined),
+    queryKey: ["all-failures", instanceId, teamId],
+    queryFn: () =>
+      tigDashboard.failures(instanceId ?? undefined, 50, teamId ?? undefined),
     refetchInterval: 30_000,
   });
 
   const allFailures = (data ?? []) as FailureEntry[];
-  const filtered = filter === 'all'
-    ? allFailures
-    : allFailures.filter((f) => f.classification === filter);
+  const filtered =
+    filter === "all"
+      ? allFailures
+      : allFailures.filter((f) => f.classification === filter);
   const grouped = useMemo(() => groupByJob(filtered), [filtered]);
 
-  const totalJobs = useMemo(() => groupByJob(allFailures).length, [allFailures]);
+  const totalJobs = useMemo(
+    () => groupByJob(allFailures).length,
+    [allFailures],
+  );
   const codeJobs = useMemo(
-    () => groupByJob(allFailures.filter((f) => f.classification === 'code')).length,
+    () =>
+      groupByJob(allFailures.filter((f) => f.classification === "code")).length,
     [allFailures],
   );
   const infraJobs = useMemo(
-    () => groupByJob(allFailures.filter((f) => f.classification === 'infrastructure')).length,
+    () =>
+      groupByJob(
+        allFailures.filter((f) => f.classification === "infrastructure"),
+      ).length,
     [allFailures],
   );
 
@@ -67,7 +76,9 @@ export function FailuresPage() {
     <Stack gap="md">
       <Group justify="space-between">
         <Group gap="sm">
-          <Title order={3} c={colors.text}>Failures</Title>
+          <Title order={3} c={colors.text}>
+            Failures
+          </Title>
           {teamsData && teamsData.length > 0 && (
             <Select
               size="xs"
@@ -76,7 +87,13 @@ export function FailuresPage() {
               value={teamId}
               onChange={setTeamId}
               data={teamsData.map((t) => ({ value: t.id, label: t.name }))}
-              styles={{ input: { backgroundColor: colors.surface, border: 'none', minWidth: 130 } }}
+              styles={{
+                input: {
+                  backgroundColor: colors.surface,
+                  border: "none",
+                  minWidth: 130,
+                },
+              }}
             />
           )}
         </Group>
@@ -85,9 +102,9 @@ export function FailuresPage() {
           value={filter}
           onChange={(v) => setFilter(v as Filter)}
           data={[
-            { label: `All (${totalJobs})`, value: 'all' },
-            { label: `Code (${codeJobs})`, value: 'code' },
-            { label: `Infra (${infraJobs})`, value: 'infrastructure' },
+            { label: `All (${totalJobs})`, value: "all" },
+            { label: `Code (${codeJobs})`, value: "code" },
+            { label: `Infra (${infraJobs})`, value: "infrastructure" },
           ]}
           styles={{ root: { backgroundColor: colors.surface } }}
         />
@@ -96,7 +113,7 @@ export function FailuresPage() {
       {grouped.length === 0 && (
         <Card radius="md" style={cardStyle} p="xl">
           <Text size="sm" c={colors.success} ta="center">
-            {filter === 'all' ? 'No recent failures' : `No ${filter} failures`}
+            {filter === "all" ? "No recent failures" : `No ${filter} failures`}
           </Text>
         </Card>
       )}
@@ -106,9 +123,14 @@ export function FailuresPage() {
           variant="separated"
           radius="md"
           styles={{
-            item: { backgroundColor: colors.surface, border: 'none' },
-            control: { padding: '10px 14px' },
-            panel: { padding: '0 14px 14px' },
+            item: {
+              backgroundColor: colors.surface,
+              border: `1px solid ${colors.border}`,
+              boxShadow: "0 2px 8px rgba(0, 0, 0, 0.3)",
+              overflow: "hidden",
+            },
+            control: { padding: "10px 14px" },
+            panel: { padding: "0 14px 14px" },
           }}
         >
           {grouped.map((g) => {
@@ -119,10 +141,16 @@ export function FailuresPage() {
             return (
               <Accordion.Item key={g.jobFullPath} value={g.jobFullPath}>
                 <Accordion.Control>
-                  <Group justify="space-between" wrap="nowrap" style={{ width: '100%', paddingRight: 8 }}>
+                  <Group
+                    justify="space-between"
+                    wrap="nowrap"
+                    style={{ width: "100%", paddingRight: 8 }}
+                  >
                     <Stack gap={2} style={{ flex: 1, minWidth: 0 }}>
                       <Group gap="xs">
-                        <Text size="sm" fw={500} c={colors.text} truncate>{g.jobName}</Text>
+                        <Text size="sm" fw={500} c={colors.text} truncate>
+                          {g.jobName}
+                        </Text>
                         {g.streak > 1 && (
                           <Badge size="xs" variant="filled" color="red">
                             {g.streak}× failed
@@ -130,7 +158,9 @@ export function FailuresPage() {
                         )}
                       </Group>
                       {hasAi && (
-                        <Text size="xs" c={colors.textSecondary} lineClamp={1}>{aiSummary}</Text>
+                        <Text size="xs" c={colors.textSecondary} lineClamp={1}>
+                          {aiSummary}
+                        </Text>
                       )}
                     </Stack>
                     <Group gap={4}>
@@ -138,16 +168,30 @@ export function FailuresPage() {
                         <Badge
                           size="xs"
                           variant="light"
-                          color={f.classification === 'infrastructure' ? 'red' : 'orange'}
+                          color={
+                            f.classification === "infrastructure"
+                              ? "red"
+                              : "orange"
+                          }
                         >
-                          {f.classification === 'infrastructure' ? 'Infra' : 'Code'}
+                          {f.classification === "infrastructure"
+                            ? "Infra"
+                            : "Code"}
                         </Badge>
                       )}
                       {hasAi ? (
-                        <Badge size="xs" variant="light" color="violet">AI</Badge>
+                        <Badge size="xs" variant="light" color="violet">
+                          AI
+                        </Badge>
                       ) : (
-                        <Tooltip label="AI was offline. Classification may be inaccurate." multiline w={250}>
-                          <Badge size="xs" variant="light" color="gray">regex</Badge>
+                        <Tooltip
+                          label="AI was offline. Classification may be inaccurate."
+                          multiline
+                          w={250}
+                        >
+                          <Badge size="xs" variant="light" color="gray">
+                            regex
+                          </Badge>
                         </Tooltip>
                       )}
                     </Group>
@@ -161,16 +205,24 @@ export function FailuresPage() {
                         <Divider color={colors.surfaceLight} />
                         <Stack gap="xs">
                           <Text size="xs" c={colors.textMuted} fw={500}>
-                            Also failed: {g.builds.length - 1} earlier build{g.builds.length > 2 ? 's' : ''}
+                            Also failed: {g.builds.length - 1} earlier build
+                            {g.builds.length > 2 ? "s" : ""}
                           </Text>
                           {g.builds.slice(1).map((older) => (
                             <Group key={older.buildId} gap="xs">
-                              <Text size="xs" c={colors.textTertiary}>#{older.buildNumber}</Text>
+                              <Text size="xs" c={colors.textTertiary}>
+                                #{older.buildNumber}
+                              </Text>
                               <Text size="xs" c={colors.textMuted}>
                                 {new Date(older.startedAt).toLocaleString()}
                               </Text>
                               {(older.aiSummary as string | undefined) && (
-                                <Text size="xs" c={colors.textMuted} lineClamp={1} style={{ flex: 1 }}>
+                                <Text
+                                  size="xs"
+                                  c={colors.textMuted}
+                                  lineClamp={1}
+                                  style={{ flex: 1 }}
+                                >
                                   {String(older.aiSummary)}
                                 </Text>
                               )}

@@ -297,3 +297,13 @@ export const patternCandidates = pgTable("pattern_candidates", {
   promotedAt: timestamp("promoted_at", { withTimezone: true }),
   promotedBy: uuid("promoted_by").references(() => users.id),
 });
+
+export const aiHealthChecks = pgTable("ai_health_checks", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  status: text("status").notNull(),
+  errorMessage: text("error_message"),
+  responseTimeMs: integer("response_time_ms"),
+  checkedAt: timestamp("checked_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});

@@ -7,6 +7,8 @@ import { instanceRoutes } from "./routes/instances";
 import { jobRoutes } from "./routes/jobs";
 import { dashboardRoutes } from "./routes/dashboard";
 import { teamRoutes } from "./routes/teams";
+import { trendsRoutes } from "./routes/trends";
+import { aiHealthRoutes } from "./routes/ai-health";
 import http from "node:http";
 
 const PORT = Number(process.env["PORT"] ?? 3000);
@@ -52,6 +54,8 @@ await app.register(instanceRoutes);
 await app.register(jobRoutes);
 await app.register(dashboardRoutes);
 await app.register(teamRoutes);
+await app.register(trendsRoutes);
+await app.register(aiHealthRoutes);
 
 // Health
 app.get("/health", async () => ({

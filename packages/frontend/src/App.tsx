@@ -1,15 +1,16 @@
-import { MantineProvider } from '@mantine/core';
-import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { theme } from './theme/mantine-theme';
-import { useAuthStore } from './store/auth-store';
-import { LoginPage } from './features/auth/LoginPage';
-import { DashboardPage } from './features/dashboard/DashboardPage';
-import { FailuresPage } from './features/failures/FailuresPage';
-import { HealthPage } from './features/health/HealthPage';
-import { TeamsPage } from './features/teams/TeamsPage';
-import { AppShellLayout } from './shared/components/AppShell';
-import '@mantine/core/styles.css';
+import { MantineProvider } from "@mantine/core";
+import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { theme } from "./theme/mantine-theme";
+import { useAuthStore } from "./store/auth-store";
+import { LoginPage } from "./features/auth/LoginPage";
+import { DashboardPage } from "./features/dashboard/DashboardPage";
+import { FailuresPage } from "./features/failures/FailuresPage";
+import { HealthPage } from "./features/health/HealthPage";
+import { TeamsPage } from "./features/teams/TeamsPage";
+import { TrendsPage } from "./features/trends/TrendsPage";
+import { AppShellLayout } from "./shared/components/AppShell";
+import "@mantine/core/styles.css";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -44,6 +45,7 @@ export default function App() {
               <Route path="/" element={<DashboardPage />} />
               <Route path="/failures" element={<FailuresPage />} />
               <Route path="/health" element={<HealthPage />} />
+              <Route path="/trends" element={<TrendsPage />} />
               <Route path="/teams" element={<TeamsPage />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />

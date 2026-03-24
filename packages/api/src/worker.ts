@@ -4,9 +4,21 @@ import { scheduleCrawls } from './jobs/schedule-crawls';
 import { syncBuilds } from './jobs/sync-builds';
 import { analyzeBuild } from './jobs/analyze-build';
 import { snapshotHealth } from './jobs/snapshot-health';
+import { checkAiHealth } from './jobs/check-ai-health';
 
 const connectionString =
   process.env['DATABASE_URL'] ?? 'postgres://tig:tig@localhost:5432/tig';
+
+// Configurable AI health check interval (default 5 min, minimum 60s)
+const rawInterval = Number(process.env['AI_HEALTH_CHECK_INTERVAL_MS'] ?? 300_000);
+const AI_HEALTH_INTERVAL_MS = Math.max(60_000, rawInterval);
+const AI_HEALTH_CRON_MINUTES = Math.max(1, Math.round(AI_HEALTH_INTERVAL_MS / 60_000));
+
+if (rawInterval < 60_000) {
+  console.warn(
+    `AI_HEALTH_CHECK_INTERVAL_MS=${rawInterval} is below minimum (60000). Using 60000.`,
+  );
+}
 
 const taskList: TaskList = {
   crawl_instance: crawlInstance,
@@ -14,6 +26,7 @@ const taskList: TaskList = {
   analyze_build: analyzeBuild,
   schedule_crawls: scheduleCrawls,
   snapshot_health: snapshotHealth,
+  check_ai_health: checkAiHealth,
 };
 
 async function main() {
@@ -22,10 +35,15 @@ async function main() {
     concurrency: 5,
     noHandleSignals: false,
     taskList,
-    crontab: '* * * * * schedule_crawls',
+    crontab: [
+      '* * * * * schedule_crawls',
+      `*/${AI_HEALTH_CRON_MINUTES} * * * * check_ai_health`,
+    ].join('\n'),
   });
 
-  console.log('TIG Worker running — all tasks live');
+  console.log(
+    `TIG Worker running — all tasks live (AI health check every ${AI_HEALTH_CRON_MINUTES}min)`,
+  );
   await runner.promise;
 }
 

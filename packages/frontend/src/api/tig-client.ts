@@ -143,6 +143,17 @@ export const tigAiCost = {
     }>("/v1/dashboard/ai-cost"),
 };
 
+// AI Health (live connectivity check)
+export const tigAiHealth = {
+  get: () =>
+    request<{
+      status: "healthy" | "unhealthy" | "unknown";
+      message: string | null;
+      lastCheckedAt: string | null;
+      responseTimeMs: number | null;
+    }>("/v1/ai/health"),
+};
+
 // Dashboard
 export const tigDashboard = {
   summary: (instanceId?: string) => {
@@ -173,6 +184,38 @@ export const tigDashboard = {
         matches: unknown;
       }[]
     >(`/v1/dashboard/failures?${params}`);
+  },
+};
+
+// Trends
+export const tigTrends = {
+  failureRate: (days = 7, instanceId?: string) => {
+    const params = new URLSearchParams({ days: String(days) });
+    if (instanceId) params.set("instance_id", instanceId);
+    return request<
+      { date: string; total: number; failed: number; rate: number }[]
+    >(`/v1/trends/failure-rate?${params}`);
+  },
+  mttr: (days = 30, instanceId?: string) => {
+    const params = new URLSearchParams({ days: String(days) });
+    if (instanceId) params.set("instance_id", instanceId);
+    return request<{ date: string; avgRecoveryHours: number }[]>(
+      `/v1/trends/mttr?${params}`,
+    );
+  },
+  buildFrequency: (days = 7, instanceId?: string) => {
+    const params = new URLSearchParams({ days: String(days) });
+    if (instanceId) params.set("instance_id", instanceId);
+    return request<
+      { date: string; total: number; success: number; failure: number }[]
+    >(`/v1/trends/build-frequency?${params}`);
+  },
+  classification: (days = 7, instanceId?: string) => {
+    const params = new URLSearchParams({ days: String(days) });
+    if (instanceId) params.set("instance_id", instanceId);
+    return request<
+      { date: string; code: number; infra: number; unknown: number }[]
+    >(`/v1/trends/classification?${params}`);
   },
 };
 

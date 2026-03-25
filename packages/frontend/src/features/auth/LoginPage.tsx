@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { colors } from "../../theme/mantine-theme";
+import { colors, cardStyle } from "../../theme/mantine-theme";
 import {
   Stack,
   Title,
@@ -79,12 +79,10 @@ export function LoginPage() {
     >
       <Container size="xs">
         <Card
-          withBorder
           p="xl"
           radius="md"
           style={{
-            backgroundColor: colors.surface,
-            borderColor: colors.border,
+            ...cardStyle,
             boxShadow: "0 4px 24px rgba(0, 0, 0, 0.4)",
           }}
         >
@@ -100,7 +98,7 @@ export function LoginPage() {
               >
                 PulsCI
               </Title>
-              <Text size="sm" c="dimmed">
+              <Text size="sm" c={colors.textTertiary}>
                 Sign in to continue
               </Text>
             </Stack>

@@ -16,12 +16,23 @@ import { tigAiCost, tigAiHealth, tigDashboard } from "../../api/tig-client";
 import { colors } from "../../theme/mantine-theme";
 
 const NAV_ITEMS = [
-  { label: "Dashboard", path: "/" },
-  { label: "Failures", path: "/failures" },
-  { label: "Health", path: "/health" },
-  { label: "Trends", path: "/trends" },
-  { label: "Teams", path: "/teams" },
+  { label: "Dashboard", path: "/", icon: "◎" },
+  { label: "Failures", path: "/failures", icon: "⚡" },
+  { label: "Health", path: "/health", icon: "♥" },
+  { label: "Trends", path: "/trends", icon: "◆" },
+  { label: "Teams", path: "/teams", icon: "⊞" },
 ] as const;
+
+// Inject pulse keyframes into document once
+if (
+  typeof document !== "undefined" &&
+  !document.getElementById("pulsci-keyframes")
+) {
+  const style = document.createElement("style");
+  style.id = "pulsci-keyframes";
+  style.textContent = `@keyframes pulsci-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(255, 107, 107, 0.4); } 50% { box-shadow: 0 0 0 6px rgba(255, 107, 107, 0); } }`;
+  document.head.appendChild(style);
+}
 
 function FailureCount() {
   const instanceId = useAuthStore((s) => s.instanceId);
@@ -35,7 +46,12 @@ function FailureCount() {
   );
   if (jobPaths.size === 0) return null;
   return (
-    <Badge size="xs" color="red" variant="filled">
+    <Badge
+      size="xs"
+      color="red"
+      variant="filled"
+      style={{ animation: "pulsci-pulse 2s infinite" }}
+    >
       {jobPaths.size}
     </Badge>
   );
@@ -130,13 +146,14 @@ export function AppShellLayout() {
           minHeight: "100vh",
         },
         header: {
-          backgroundColor: "rgba(12, 14, 22, 0.9)",
+          backgroundColor: "rgba(30, 33, 40, 0.88)",
           borderBottom: `1px solid ${colors.border}`,
-          backdropFilter: "blur(12px)",
+          backdropFilter: "blur(14px)",
         },
         navbar: {
-          backgroundColor: "rgba(12, 14, 22, 0.95)",
+          backgroundColor: "rgba(28, 31, 38, 0.92)",
           borderRight: `1px solid ${colors.border}`,
+          backdropFilter: "blur(14px)",
         },
       }}
     >
@@ -191,22 +208,32 @@ export function AppShellLayout() {
                   cursor: "pointer",
                   padding: "10px 14px",
                   borderRadius: 8,
-                  backgroundColor: isActive ? colors.surface : "transparent",
-                  borderLeft: isActive
-                    ? `3px solid ${colors.accent}`
-                    : "3px solid transparent",
-                  boxShadow: isActive ? `0 2px 8px rgba(0, 0, 0, 0.2)` : "none",
+                  backgroundColor: isActive
+                    ? colors.accentMuted
+                    : "transparent",
+                  border: isActive
+                    ? `1px solid ${colors.borderHover}`
+                    : "1px solid transparent",
                   transition: "all 0.15s ease",
                 }}
               >
                 <Group justify="space-between">
-                  <Text
-                    size="sm"
-                    fw={isActive ? 600 : 400}
-                    c={isActive ? colors.text : colors.textTertiary}
-                  >
-                    {item.label}
-                  </Text>
+                  <Group gap={8}>
+                    <Text
+                      size="sm"
+                      c={isActive ? colors.accent : colors.textMuted}
+                      style={{ width: 16, textAlign: "center" }}
+                    >
+                      {item.icon}
+                    </Text>
+                    <Text
+                      size="sm"
+                      fw={isActive ? 600 : 400}
+                      c={isActive ? colors.text : colors.textTertiary}
+                    >
+                      {item.label}
+                    </Text>
+                  </Group>
                   {item.path === "/failures" && <FailureCount />}
                 </Group>
               </Box>

@@ -17,6 +17,7 @@ import {
 import { tigDashboard, tigTeams } from "../../api/tig-client";
 import { useAuthStore } from "../../store/auth-store";
 import { colors, cardStyle, statusGradient } from "../../theme/mantine-theme";
+import { QueryError } from "../../shared/components/QueryError";
 import { groupByJob } from "./utils/group-by-job";
 import { FailureDetail } from "./components/FailureDetail";
 import type { FailureEntry } from "./types";
@@ -33,12 +34,14 @@ export function FailuresPage() {
     queryFn: () => tigTeams.list(),
   });
 
-  const { data, isLoading } = useQuery({
+  const failuresQuery = useQuery({
     queryKey: ["all-failures", instanceId, teamId],
     queryFn: () =>
       tigDashboard.failures(instanceId ?? undefined, 50, teamId ?? undefined),
     refetchInterval: 30_000,
   });
+
+  const { data, isLoading } = failuresQuery;
 
   const allFailures = (data ?? []) as FailureEntry[];
   const filtered =
@@ -67,8 +70,17 @@ export function FailuresPage() {
   if (isLoading) {
     return (
       <Stack align="center" py="xl">
-        <Loader color="violet" size="sm" />
+        <Loader color="orange" size="sm" />
       </Stack>
+    );
+  }
+
+  if (failuresQuery.isError) {
+    return (
+      <QueryError
+        message={failuresQuery.error?.message}
+        onRetry={failuresQuery.refetch}
+      />
     );
   }
 
@@ -180,7 +192,7 @@ export function FailuresPage() {
                         </Badge>
                       )}
                       {hasAi ? (
-                        <Badge size="xs" variant="light" color="violet">
+                        <Badge size="xs" variant="light" color="orange">
                           AI
                         </Badge>
                       ) : (

@@ -1,6 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { AnthropicBedrock } from "@anthropic-ai/bedrock-sdk";
 import { filterLogForAnalysis } from "./log-filter";
+import { deduplicateLog } from "./log-dedup";
+import { extractErrorContext } from "./log-extract";
 
 // Haiku pricing per 1M tokens
 const INPUT_COST_PER_MTOK = 0.8;
@@ -135,21 +137,31 @@ export async function analyzeWithAi(
   buildNumber: number,
   regexClassification?: string,
 ): Promise<AiAnalysisResponse> {
-  // Strip known noise — cheaper AI + user-facing insight
+  // Pass 1: Strip known noise patterns
   const { text: filteredLog, stats: logStats } = filterLogForAnalysis(log);
+
+  // Pass 2: Structural deduplication — collapse repetitive lines
+  const { text: dedupedLog, stats: dedupStats } = deduplicateLog(filteredLog);
+
+  // Pass 3: Error-proximity extraction — keep only error regions + context
+  const { text: extractedLog, stats: extractStats } =
+    extractErrorContext(dedupedLog);
+
+  console.log(
+    `Log pipeline: ${log.length} chars → ${filteredLog.length} (pass1) → ${dedupedLog.length} (pass2) → ${extractedLog.length} (pass3) [${dedupStats.collapsedRuns} dedup runs, ${extractStats.errorRegions} error regions]`,
+  );
 
   const client = createClient();
   if (!client) {
     return { result: null, usage: null, logStats };
   }
 
-  // Hard cap: Haiku's context is 200K tokens (~800K chars).
-  // Keep first 20K + last 180K chars of filtered log if still too large.
-  const MAX_FILTERED_CHARS = 500_000;
+  // Hard cap — safety net after 3 passes
+  const MAX_CHARS = 200_000;
   const cappedLog =
-    filteredLog.length > MAX_FILTERED_CHARS
-      ? `${filteredLog.slice(0, 50_000)}\n\n[... ${filteredLog.length - 500_000} chars truncated after noise filtering ...]\n\n${filteredLog.slice(-450_000)}`
-      : filteredLog;
+    extractedLog.length > MAX_CHARS
+      ? `${extractedLog.slice(0, 20_000)}\n\n[... ${extractedLog.length - MAX_CHARS} chars truncated ...]\n\n${extractedLog.slice(-180_000)}`
+      : extractedLog;
 
   const buildContext = detectBuildContext(jobName);
 

@@ -1,6 +1,6 @@
 # PulsCI Progress Tracker
 
-Last updated: 2026-03-23 (end of day)
+Last updated: 2026-03-24 (end of day)
 
 ## Current State
 
@@ -9,10 +9,11 @@ PulsCI is a working CI/CD diagnostics product connected to Neteera's production 
 ### What's Live
 - **632 jobs** crawled every 60 seconds
 - **738 builds** synced
-- **72 builds analyzed with AI** (Claude Haiku via AWS Bedrock)
+- **72+ builds analyzed with AI** (Claude Haiku via AWS Bedrock)
 - **286+ health snapshots** recorded
-- **$0.66 total AI spend** (~$0.009/build average)
-- **46 tests** passing (39 shared + 7 frontend)
+- **$0.66 total AI spend** (~$0.02/build for largest logs, down from $0.14)
+- **66 tests** passing (39 shared + 7 frontend + 20 api)
+- **3-pass log pipeline** reduces 1.8M char logs to 55K chars (97% reduction)
 - Frontend at localhost:8090, API at localhost:3000
 
 ### Infrastructure
@@ -56,7 +57,11 @@ PulsCI is a working CI/CD diagnostics product connected to Neteera's production 
 - Cost tracking per analysis (tokens + USD)
 - Log insight: shows noise % on failure cards
 - AI offline detection: header warning + "regex" badge on degraded analyses
-- Hard cap on filtered logs (500K chars) for Haiku context window
+- 3-pass log pipeline: Pass 1 (regex noise strip) → Pass 2 (frequency-based structural dedup) → Pass 3 (error-proximity extraction)
+- Pass 2: fingerprints lines, collapses consecutive + non-consecutive high-frequency patterns (generic, no domain knowledge)
+- Pass 3: keeps error/failure/exception regions + 10 lines before/5 after + head/tail (generic across all languages)
+- Result: 1.8M → 55K chars, $0.14 → $0.02 per analysis (7x cost reduction)
+- Safety net hard cap at 200K chars (rarely triggers after 3 passes)
 
 ### Phase 2: Teams + Trends (IN PROGRESS)
 
@@ -71,15 +76,23 @@ PulsCI is a working CI/CD diagnostics product connected to Neteera's production 
 - ✅ Health sparkline bar chart
 - ✅ Designer brief written (docs/DESIGNER-BRIEF.md)
 
+- ✅ Trends API (4 endpoints: failure-rate, mttr, build-frequency, classification)
+- ✅ Trends page (hero failure rate chart, build frequency, classification breakdown, MTTR)
+- ✅ Atmosphere theme (deep navy, frosted glass, violet accent, Plus Jakarta Sans)
+- ✅ AI health check (worker pings Bedrock every 5min, cached endpoint, 6 security mitigations)
+- ✅ AI status badge in header (healthy/unhealthy/unknown + cost display)
+- ✅ 3-pass log pipeline: noise filter → structural dedup → error-proximity extraction
+- ✅ 20 API tests (11 log-extract + 9 log-dedup)
+
 #### Remaining
-- ❌ Trends API + charts (failure rate over time, DORA metrics)
+- ❌ Trends + Atmosphere need CEO visual review
 - ❌ Executive summary view (for VP Eng / managers)
 - ❌ RBAC enforcement (admin/member/viewer)
 - ❌ Multi-instance support
 - ❌ "Flag for pattern review" button
 
 ### Not Started
-- Phase 3: Alerts (Slack) + SSO + First-run
+- Phase 3: Alerts (Microsoft Teams webhook) + SSO + First-run
 - Phase 4: Scale + Pattern Intelligence
 
 ---
@@ -89,7 +102,7 @@ PulsCI is a working CI/CD diagnostics product connected to Neteera's production 
 ### Tests
 - packages/shared: 39 tests (pattern matcher, classifier, health calculator)
 - packages/frontend: 7 tests (groupByJob)
-- packages/api: 0 tests (needs integration tests)
+- packages/api: 20 tests (11 log-extract, 9 log-dedup)
 
 ### Theme Consistency
 - Zero hardcoded hex in any component file (verified via grep)
@@ -118,7 +131,8 @@ PulsCI is a working CI/CD diagnostics product connected to Neteera's production 
 
 ## Key Architecture Decisions
 - AI-first: regex classifies fast, AI extracts specifics. Never hand-tune extractors.
-- Log noise stripping: removes known noise before sending to AI. Cheaper + more accurate.
+- 3-pass log pipeline: generic, zero-cost, 97% reduction on largest logs. No domain-specific patterns in Pass 2+3.
+- Error-proximity extraction (Pass 3): universal error markers (ERROR/FAIL/Exception/Traceback) work across all languages.
 - No Redis: PostgreSQL handles everything including job queue (graphile-worker).
 - better-auth for auth (Lucia deprecated March 2025).
 - Bottleneck rate limiter inside jenkins-crawler.ts, not at queue layer.
@@ -133,7 +147,7 @@ PulsCI is a working CI/CD diagnostics product connected to Neteera's production 
 ### Backend Engineer: "I would make PulsCI the default failure triage view for my team today"
 - ✅ Group failures by job
 - ✅ GitHub source links (exact SHA)
-- ❌ Slack notifications (#1 next ask)
+- ❌ Microsoft Teams notifications (#1 next ask)
 - ❌ Flaky test detection
 - ❌ True consecutive streak
 

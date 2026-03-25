@@ -13,6 +13,7 @@ import {
 import { tigHealth } from "../../api/tig-client";
 import { useAuthStore } from "../../store/auth-store";
 import { colors, cardStyle, HEALTH_COLORS } from "../../theme/mantine-theme";
+import { QueryError } from "../../shared/components/QueryError";
 
 function HealthSparkline({
   data,
@@ -83,8 +84,14 @@ export function HealthPage() {
   if (current.isLoading) {
     return (
       <Stack align="center" py="xl">
-        <Loader color="violet" size="sm" />
+        <Loader color="orange" size="sm" />
       </Stack>
+    );
+  }
+
+  if (current.isError) {
+    return (
+      <QueryError message={current.error?.message} onRetry={current.refetch} />
     );
   }
 

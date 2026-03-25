@@ -1,22 +1,67 @@
-import type { FastifyInstance } from 'fastify';
-import { sql } from 'drizzle-orm';
-import { db } from '../db/connection';
-import { requireAuth } from '../middleware/auth';
+import type { FastifyInstance } from "fastify";
+import { sql, eq } from "drizzle-orm";
+import { db } from "../db/connection";
+import { requireAuth } from "../middleware/auth";
+import { teams, jobs } from "../db/schema";
+import { jobMatchesTeam } from "./teams";
+
+type TrendsQuery = {
+  Querystring: { instance_id?: string; days?: string; team_id?: string };
+};
+
+// Resolve team glob patterns to a set of job IDs
+async function resolveTeamJobIds(teamId: string): Promise<string[]> {
+  const [team] = await db
+    .select({ folderPatterns: teams.folderPatterns })
+    .from(teams)
+    .where(eq(teams.id, teamId))
+    .limit(1);
+
+  if (!team) return [];
+
+  const allJobs = await db
+    .select({ id: jobs.id, fullPath: jobs.fullPath })
+    .from(jobs);
+
+  return allJobs
+    .filter((j) => jobMatchesTeam(j.fullPath, team.folderPatterns))
+    .map((j) => j.id);
+}
+
+function buildFilters(
+  instanceId: string | undefined,
+  teamJobIds: string[] | null,
+) {
+  const instanceFilter = instanceId
+    ? sql`AND j.ci_instance_id = ${instanceId}`
+    : sql``;
+
+  const teamFilter =
+    teamJobIds !== null
+      ? teamJobIds.length > 0
+        ? sql`AND j.id = ANY(${teamJobIds})`
+        : sql`AND FALSE`
+      : sql``;
+
+  return { instanceFilter, teamFilter };
+}
 
 export async function trendsRoutes(app: FastifyInstance) {
-  app.addHook('preHandler', requireAuth);
+  app.addHook("preHandler", requireAuth);
 
   // Failure rate over time — daily buckets
-  app.get<{
-    Querystring: { instance_id?: string; days?: string };
-  }>('/api/v1/trends/failure-rate', async (request) => {
+  app.get<TrendsQuery>("/api/v1/trends/failure-rate", async (request) => {
     const days = Number(request.query.days ?? 7);
-    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
-    const instanceId = request.query.instance_id;
-
-    const instanceFilter = instanceId
-      ? sql`AND j.ci_instance_id = ${instanceId}`
-      : sql``;
+    const since = new Date(
+      Date.now() - days * 24 * 60 * 60 * 1000,
+    ).toISOString();
+    const teamJobIds = request.query.team_id
+      ? await resolveTeamJobIds(request.query.team_id)
+      : null;
+    const { instanceFilter, teamFilter } = buildFilters(
+      request.query.instance_id,
+      teamJobIds,
+    );
 
     const result = await db.execute(sql`
       SELECT
@@ -31,6 +76,7 @@ export async function trendsRoutes(app: FastifyInstance) {
       JOIN jobs j ON j.id = b.job_id
       WHERE b.started_at >= ${since}
         ${instanceFilter}
+        ${teamFilter}
       GROUP BY DATE(b.started_at)
       ORDER BY date
     `);
@@ -39,16 +85,18 @@ export async function trendsRoutes(app: FastifyInstance) {
   });
 
   // MTTR — mean time to recovery
-  app.get<{
-    Querystring: { instance_id?: string; days?: string };
-  }>('/api/v1/trends/mttr', async (request) => {
+  app.get<TrendsQuery>("/api/v1/trends/mttr", async (request) => {
     const days = Number(request.query.days ?? 30);
-    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
-    const instanceId = request.query.instance_id;
-
-    const instanceFilter = instanceId
-      ? sql`AND j.ci_instance_id = ${instanceId}`
-      : sql``;
+    const since = new Date(
+      Date.now() - days * 24 * 60 * 60 * 1000,
+    ).toISOString();
+    const teamJobIds = request.query.team_id
+      ? await resolveTeamJobIds(request.query.team_id)
+      : null;
+    const { instanceFilter, teamFilter } = buildFilters(
+      request.query.instance_id,
+      teamJobIds,
+    );
 
     const result = await db.execute(sql`
       WITH failure_recovery AS (
@@ -67,6 +115,7 @@ export async function trendsRoutes(app: FastifyInstance) {
         WHERE b.result IN ('FAILURE', 'UNSTABLE')
           AND b.started_at >= ${since}
           ${instanceFilter}
+          ${teamFilter}
       )
       SELECT
         DATE(failed_at) as date,
@@ -81,16 +130,18 @@ export async function trendsRoutes(app: FastifyInstance) {
   });
 
   // Build frequency — daily
-  app.get<{
-    Querystring: { instance_id?: string; days?: string };
-  }>('/api/v1/trends/build-frequency', async (request) => {
+  app.get<TrendsQuery>("/api/v1/trends/build-frequency", async (request) => {
     const days = Number(request.query.days ?? 7);
-    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
-    const instanceId = request.query.instance_id;
-
-    const instanceFilter = instanceId
-      ? sql`AND j.ci_instance_id = ${instanceId}`
-      : sql``;
+    const since = new Date(
+      Date.now() - days * 24 * 60 * 60 * 1000,
+    ).toISOString();
+    const teamJobIds = request.query.team_id
+      ? await resolveTeamJobIds(request.query.team_id)
+      : null;
+    const { instanceFilter, teamFilter } = buildFilters(
+      request.query.instance_id,
+      teamJobIds,
+    );
 
     const result = await db.execute(sql`
       SELECT
@@ -102,6 +153,7 @@ export async function trendsRoutes(app: FastifyInstance) {
       JOIN jobs j ON j.id = b.job_id
       WHERE b.started_at >= ${since}
         ${instanceFilter}
+        ${teamFilter}
       GROUP BY DATE(b.started_at)
       ORDER BY date
     `);
@@ -110,16 +162,18 @@ export async function trendsRoutes(app: FastifyInstance) {
   });
 
   // Classification breakdown — infra vs code
-  app.get<{
-    Querystring: { instance_id?: string; days?: string };
-  }>('/api/v1/trends/classification', async (request) => {
+  app.get<TrendsQuery>("/api/v1/trends/classification", async (request) => {
     const days = Number(request.query.days ?? 7);
-    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
-    const instanceId = request.query.instance_id;
-
-    const instanceFilter = instanceId
-      ? sql`AND j.ci_instance_id = ${instanceId}`
-      : sql``;
+    const since = new Date(
+      Date.now() - days * 24 * 60 * 60 * 1000,
+    ).toISOString();
+    const teamJobIds = request.query.team_id
+      ? await resolveTeamJobIds(request.query.team_id)
+      : null;
+    const { instanceFilter, teamFilter } = buildFilters(
+      request.query.instance_id,
+      teamJobIds,
+    );
 
     const result = await db.execute(sql`
       SELECT
@@ -133,6 +187,7 @@ export async function trendsRoutes(app: FastifyInstance) {
       WHERE b.result IN ('FAILURE', 'UNSTABLE')
         AND b.started_at >= ${since}
         ${instanceFilter}
+        ${teamFilter}
       GROUP BY DATE(b.started_at)
       ORDER BY date
     `);

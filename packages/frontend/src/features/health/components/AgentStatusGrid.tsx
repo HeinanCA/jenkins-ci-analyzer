@@ -1,6 +1,7 @@
 import { SimpleGrid, Card, Badge, Text, Group, Stack } from "@mantine/core";
 import type { JenkinsAgent } from "@tig/shared";
 import { STUCK_AGENT_THRESHOLD_MS } from "@tig/shared";
+import { colors, cardStyle } from "../../../theme/mantine-theme";
 import { formatDuration } from "../../../shared/utils/format-duration";
 
 interface Props {
@@ -52,7 +53,7 @@ export function AgentStatusGrid({ agents }: Props) {
         ).length;
 
         return (
-          <Card key={agent.displayName} withBorder>
+          <Card key={agent.displayName} radius="md" style={cardStyle}>
             <Stack gap="xs">
               <Group justify="space-between">
                 <Text size="sm" fw={500} lineClamp={1}>
@@ -62,11 +63,18 @@ export function AgentStatusGrid({ agents }: Props) {
                   {status.label}
                 </Badge>
               </Group>
-              <Text size="xs" c="dimmed">
+              <Text size="xs" c={colors.textTertiary}>
                 Executors: {busyExecutors}/{agent.numExecutors}
               </Text>
               {status.detail && (
-                <Text size="xs" c={status.color === "red" ? "red" : "dimmed"}>
+                <Text
+                  size="xs"
+                  c={
+                    status.color === "red"
+                      ? colors.failure
+                      : colors.textTertiary
+                  }
+                >
                   {status.detail}
                 </Text>
               )}

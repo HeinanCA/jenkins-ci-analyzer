@@ -1,39 +1,42 @@
-import { createTheme } from '@mantine/core';
+import { createTheme } from "@mantine/core";
 
 // ─── Atmosphere Theme ───────────────────────────────────────
-// Deep, layered, alive. The product breathes.
+// Warm dark. Like a terminal in a coffee shop.
+// Accent: Ember — warm coral-orange. A pulse is warm.
 
 export const colors = {
-  // Backgrounds — deep navy-black with depth
-  bg: '#0C0E16',
-  bgGradient: 'linear-gradient(180deg, #0C0E16 0%, #111420 100%)',
-  surface: '#161926',
-  surfaceHover: '#1C1F2E',
-  surfaceLight: '#121520',
-  border: 'rgba(255, 255, 255, 0.06)',
-  borderHover: 'rgba(255, 255, 255, 0.1)',
+  // Backgrounds — warm charcoal base, cool slate glass for contrast
+  bg: "#141210",
+  bgGradient: "linear-gradient(180deg, #141210 0%, #1A1714 100%)",
+  surface: "rgba(35, 38, 45, 0.55)",
+  surfaceHover: "rgba(42, 45, 52, 0.65)",
+  surfaceSolid: "#232830",
+  surfaceLight: "#1C1E24",
+  border: "rgba(200, 210, 230, 0.08)",
+  borderHover: "rgba(245, 103, 64, 0.3)",
 
-  // Text
-  text: '#E4E6EF',
-  textSecondary: '#9194A5',
-  textTertiary: '#6B6F85',
-  textMuted: '#4A4E63',
+  // Text — warm whites instead of blue-whites
+  text: "#EDE8E3",
+  textSecondary: "#A59E95",
+  textTertiary: "#7A736A",
+  textMuted: "#524C45",
 
   // Status
-  success: '#51E2B4',
-  failure: '#FF6B6B',
-  critical: '#EF4444',
-  warning: '#FBBF24',
-  info: '#60A5FA',
+  success: "#51E2B4",
+  failure: "#FF6B6B",
+  critical: "#EF4444",
+  warning: "#FBBF24",
+  info: "#60A5FA",
 
-  // Accent — violet to lavender
-  accent: '#6C5CE7',
-  accentLight: '#A78BFA',
-  accentGradient: 'linear-gradient(135deg, #6C5CE7, #A78BFA)',
+  // Accent — ember coral to soft peach
+  accent: "#F56740",
+  accentLight: "#FF9A76",
+  accentGradient: "linear-gradient(135deg, #F56740, #FF9A76)",
+  accentMuted: "rgba(245, 103, 64, 0.12)",
 
   // Gradients for login/special pages
-  gradientMid: '#111420',
-  gradientEnd: '#0f1a3a',
+  gradientMid: "#1A1714",
+  gradientEnd: "#1F1610",
 } as const;
 
 export const HEALTH_COLORS: Record<string, string> = {
@@ -48,16 +51,23 @@ export function statusGradient(color: string): string {
   return `linear-gradient(90deg, ${color}, transparent)`;
 }
 
-export const cardStyle = {
+// ─── Frosted glass card with ember glow on hover ───
+export const cardStyle: Record<string, string> = {
   backgroundColor: colors.surface,
+  backdropFilter: "blur(8px)",
   border: `1px solid ${colors.border}`,
-  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
-} as const;
+  borderTop: "2px solid transparent",
+  borderImage:
+    "linear-gradient(90deg, rgba(245, 103, 64, 0.35) 0%, rgba(255, 154, 118, 0.12) 50%, transparent 100%) 1",
+  boxShadow: "0 2px 8px rgba(0, 0, 0, 0.4)",
+  transition: "border-color 0.2s ease, box-shadow 0.2s ease",
+};
 
-export const cardHoverStyle = {
+export const cardHoverStyle: Record<string, string> = {
   ...cardStyle,
   borderColor: colors.borderHover,
-} as const;
+  boxShadow: "0 4px 16px rgba(245, 103, 64, 0.08)",
+};
 
 export const codeStyle = {
   backgroundColor: colors.surfaceLight,
@@ -65,14 +75,23 @@ export const codeStyle = {
   fontSize: 12,
 } as const;
 
+// ─── Metric number styling (tabular figures, tight tracking) ───
+export const metricStyle = {
+  fontFamily:
+    '"Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+  fontFeatureSettings: '"tnum"',
+  fontWeight: 800,
+  letterSpacing: "-0.02em",
+} as const;
+
 export const theme = createTheme({
-  primaryColor: 'violet',
-  defaultRadius: 'md',
+  primaryColor: "orange",
+  defaultRadius: "md",
   fontFamily:
     '"Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
   headings: {
     fontFamily:
       '"Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-    fontWeight: '700',
+    fontWeight: "700",
   },
 });

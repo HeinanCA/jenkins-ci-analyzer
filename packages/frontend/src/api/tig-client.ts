@@ -189,30 +189,34 @@ export const tigDashboard = {
 
 // Trends
 export const tigTrends = {
-  failureRate: (days = 7, instanceId?: string) => {
+  failureRate: (days = 7, instanceId?: string, teamId?: string) => {
     const params = new URLSearchParams({ days: String(days) });
     if (instanceId) params.set("instance_id", instanceId);
+    if (teamId) params.set("team_id", teamId);
     return request<
       { date: string; total: number; failed: number; rate: number }[]
     >(`/v1/trends/failure-rate?${params}`);
   },
-  mttr: (days = 30, instanceId?: string) => {
+  mttr: (days = 30, instanceId?: string, teamId?: string) => {
     const params = new URLSearchParams({ days: String(days) });
     if (instanceId) params.set("instance_id", instanceId);
+    if (teamId) params.set("team_id", teamId);
     return request<{ date: string; avgRecoveryHours: number }[]>(
       `/v1/trends/mttr?${params}`,
     );
   },
-  buildFrequency: (days = 7, instanceId?: string) => {
+  buildFrequency: (days = 7, instanceId?: string, teamId?: string) => {
     const params = new URLSearchParams({ days: String(days) });
     if (instanceId) params.set("instance_id", instanceId);
+    if (teamId) params.set("team_id", teamId);
     return request<
       { date: string; total: number; success: number; failure: number }[]
     >(`/v1/trends/build-frequency?${params}`);
   },
-  classification: (days = 7, instanceId?: string) => {
+  classification: (days = 7, instanceId?: string, teamId?: string) => {
     const params = new URLSearchParams({ days: String(days) });
     if (instanceId) params.set("instance_id", instanceId);
+    if (teamId) params.set("team_id", teamId);
     return request<
       { date: string; code: number; infra: number; unknown: number }[]
     >(`/v1/trends/classification?${params}`);

@@ -18,6 +18,7 @@ import {
 import { tigTeams, tigInstances } from "../../api/tig-client";
 import { useAuthStore } from "../../store/auth-store";
 import { colors, cardStyle } from "../../theme/mantine-theme";
+import { QueryError } from "../../shared/components/QueryError";
 
 interface FolderNode {
   name: string;
@@ -136,10 +137,12 @@ export function TeamsPage() {
   );
   const [treeSearch, setTreeSearch] = useState("");
 
-  const { data: teams, isLoading } = useQuery({
+  const teamsQuery = useQuery({
     queryKey: ["teams"],
     queryFn: () => tigTeams.list(),
   });
+
+  const { data: teams, isLoading } = teamsQuery;
 
   const { data: instanceJobs } = useQuery({
     queryKey: ["instance-jobs", instanceId],
@@ -196,8 +199,17 @@ export function TeamsPage() {
   if (isLoading) {
     return (
       <Stack align="center" py="xl">
-        <Loader color="violet" size="sm" />
+        <Loader color="orange" size="sm" />
       </Stack>
+    );
+  }
+
+  if (teamsQuery.isError) {
+    return (
+      <QueryError
+        message={teamsQuery.error?.message}
+        onRetry={teamsQuery.refetch}
+      />
     );
   }
 
@@ -208,7 +220,7 @@ export function TeamsPage() {
           Teams
         </Title>
         {!creating && (
-          <Button size="xs" color="violet" onClick={() => setCreating(true)}>
+          <Button size="xs" color="orange" onClick={() => setCreating(true)}>
             New Team
           </Button>
         )}
@@ -267,7 +279,7 @@ export function TeamsPage() {
                     key={p}
                     size="xs"
                     variant="light"
-                    color="violet"
+                    color="orange"
                     rightSection={
                       <ActionIcon
                         size={12}
@@ -288,7 +300,7 @@ export function TeamsPage() {
             <Group>
               <Button
                 size="xs"
-                color="violet"
+                color="orange"
                 onClick={() => createMutation.mutate()}
                 loading={createMutation.isPending}
                 disabled={!newName || selectedPatterns.size === 0}
@@ -336,7 +348,7 @@ export function TeamsPage() {
                   </Text>
                   <Group gap={4}>
                     {team.folderPatterns.map((p, i) => (
-                      <Badge key={i} size="xs" variant="light" color="violet">
+                      <Badge key={i} size="xs" variant="light" color="orange">
                         {p}
                       </Badge>
                     ))}

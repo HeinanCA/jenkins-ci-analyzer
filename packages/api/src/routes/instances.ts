@@ -86,6 +86,41 @@ export async function instanceRoutes(app: FastifyInstance) {
     }
 
     const normalizedUrl = baseUrl.replace(/\/$/, "");
+
+    // SSRF protection: validate baseUrl
+    try {
+      const parsed = new URL(normalizedUrl);
+      if (!["https:", "http:"].includes(parsed.protocol)) {
+        return reply
+          .status(400)
+          .send({ data: null, error: "baseUrl must use http or https" });
+      }
+      const hostname = parsed.hostname.toLowerCase();
+      // Block internal/metadata addresses
+      if (
+        hostname === "localhost" ||
+        hostname === "127.0.0.1" ||
+        hostname === "0.0.0.0" ||
+        hostname.startsWith("169.254.") ||
+        hostname.startsWith("10.") ||
+        hostname.startsWith("192.168.") ||
+        hostname.match(/^172\.(1[6-9]|2\d|3[01])\./) ||
+        hostname === "[::1]" ||
+        hostname.endsWith(".internal")
+      ) {
+        return reply
+          .status(400)
+          .send({
+            data: null,
+            error: "baseUrl cannot point to internal or metadata addresses",
+          });
+      }
+    } catch {
+      return reply
+        .status(400)
+        .send({ data: null, error: "baseUrl is not a valid URL" });
+    }
+
     const encrypted = encryptCredentials({ username, token });
 
     const [created] = await db

@@ -5,8 +5,7 @@ import { organizations, users } from "../db/schema";
 import { requireAuth } from "../middleware/auth";
 
 export async function organizationRoutes(app: FastifyInstance) {
-  // Setup route — creates org + links user on first run
-  // No auth required — this is the first thing a new user does
+  // Setup route — disabled for now (invitation-only mode)
   app.post<{
     Body: {
       orgName: string;
@@ -15,6 +14,12 @@ export async function organizationRoutes(app: FastifyInstance) {
       displayName: string;
     };
   }>("/api/v1/setup", async (request, reply) => {
+    // Setup is disabled — invitation-only mode
+    return reply.status(403).send({
+      data: null,
+      error: "Setup is disabled. Contact your admin.",
+    });
+
     const { orgName, email, password, displayName } = request.body;
 
     if (!orgName || !email || !password || !displayName) {

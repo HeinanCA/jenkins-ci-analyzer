@@ -39,6 +39,17 @@ const app = Fastify({
     const authHandler = toNodeHandler(auth);
 
     return http.createServer((req, res) => {
+      // Block sign-up entirely — invitation-only
+      if (req.url?.includes("sign-up")) {
+        res.writeHead(403, { "Content-Type": "application/json" });
+        res.end(
+          JSON.stringify({
+            error: "Sign-up is disabled. Contact your admin for an invitation.",
+          }),
+        );
+        return;
+      }
+
       // Route /api/auth/* to better-auth directly (bypasses Fastify)
       if (req.url?.startsWith("/api/auth")) {
         const origin = req.headers.origin ?? "";

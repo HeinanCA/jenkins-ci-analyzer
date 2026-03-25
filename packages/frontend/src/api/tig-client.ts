@@ -87,7 +87,6 @@ export const tigSetup = {
       organization: { id: string; name: string };
     }>("/v1/setup", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ orgName, email, displayName, password }),
     }),
 };

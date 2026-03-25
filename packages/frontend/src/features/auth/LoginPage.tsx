@@ -102,7 +102,27 @@ export function LoginPage() {
           email: result.user.email,
           name: result.user.name,
         });
-        setMode("setup");
+        // Check if org already exists (first user already set up)
+        const hasInstance = await loadOrgAndInstance();
+        if (hasInstance) {
+          navigate("/");
+        } else {
+          const status = await tigSetup.getStatus();
+          if (status.isSetUp && status.organization) {
+            // Auto-join existing org, skip setup
+            await tigSetup.create(
+              status.organization.name,
+              email,
+              name,
+              password,
+            );
+            setOrganizationId(status.organization.id);
+            await loadOrgAndInstance();
+            navigate("/");
+          } else {
+            setMode("setup");
+          }
+        }
       } else {
         setError(result?.message ?? "Sign up failed");
       }

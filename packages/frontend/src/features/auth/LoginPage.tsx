@@ -69,7 +69,11 @@ export function LoginPage() {
     try {
       const result = await tigAuth.signIn(email, password);
       if (result?.user) {
-        setUser({ id: result.user.id, email: result.user.email, name: result.user.name });
+        setUser({
+          id: result.user.id,
+          email: result.user.email,
+          name: result.user.name,
+        });
         const hasInstance = await loadOrgAndInstance();
         navigate(hasInstance ? "/" : "/");
         if (!hasInstance) setMode("setup");
@@ -93,7 +97,11 @@ export function LoginPage() {
     try {
       const result = await tigAuth.signUp(email, password, name);
       if (result?.user) {
-        setUser({ id: result.user.id, email: result.user.email, name: result.user.name });
+        setUser({
+          id: result.user.id,
+          email: result.user.email,
+          name: result.user.name,
+        });
         setMode("setup");
       } else {
         setError(result?.message ?? "Sign up failed");
@@ -106,14 +114,19 @@ export function LoginPage() {
   };
 
   const handleSetup = async () => {
-    if (!orgName.trim() || !jenkinsUrl.trim() || !jenkinsUser.trim() || !jenkinsToken.trim()) {
+    if (
+      !orgName.trim() ||
+      !jenkinsUrl.trim() ||
+      !jenkinsUser.trim() ||
+      !jenkinsToken.trim()
+    ) {
       setError("All fields are required");
       return;
     }
     setLoading(true);
     setError(null);
     try {
-      const orgResult = await tigSetup.create(orgName, email, name);
+      const orgResult = await tigSetup.create(orgName, email, name, password);
       if (orgResult?.organization) {
         setOrganizationId(orgResult.organization.id);
         const instance = await tigInstances.create(
@@ -172,7 +185,8 @@ export function LoginPage() {
           radius={12}
           style={{
             ...cardStyle,
-            boxShadow: "0 8px 32px rgba(0, 0, 0, 0.5), 0 0 80px rgba(245, 103, 64, 0.03)",
+            boxShadow:
+              "0 8px 32px rgba(0, 0, 0, 0.5), 0 0 80px rgba(245, 103, 64, 0.03)",
           }}
         >
           <Stack gap="lg">
@@ -247,7 +261,10 @@ export function LoginPage() {
                     size="xs"
                     c={colors.accent}
                     fw={600}
-                    onClick={() => { setError(null); setMode("signup"); }}
+                    onClick={() => {
+                      setError(null);
+                      setMode("signup");
+                    }}
                   >
                     Sign up
                   </Anchor>
@@ -298,7 +315,10 @@ export function LoginPage() {
                     size="xs"
                     c={colors.accent}
                     fw={600}
-                    onClick={() => { setError(null); setMode("signin"); }}
+                    onClick={() => {
+                      setError(null);
+                      setMode("signin");
+                    }}
                   >
                     Sign in
                   </Anchor>
@@ -358,7 +378,8 @@ export function LoginPage() {
                   Connect & Start
                 </Button>
                 <Text size="xs" c={colors.textMuted} ta="center">
-                  You can find your API token in Jenkins → Your Name → Configure → API Token
+                  You can find your API token in Jenkins → Your Name → Configure
+                  → API Token
                 </Text>
               </>
             )}

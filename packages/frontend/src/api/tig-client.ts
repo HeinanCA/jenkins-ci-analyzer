@@ -77,13 +77,18 @@ export const tigSetup = {
       isSetUp: boolean;
       organization: { id: string; name: string } | null;
     }>("/v1/setup/status"),
-  create: (orgName: string, email: string, name: string) =>
+  create: (
+    orgName: string,
+    email: string,
+    displayName: string,
+    password: string,
+  ) =>
     request<{
       organization: { id: string; name: string };
     }>("/v1/setup", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ organizationName: orgName, email, name }),
+      body: JSON.stringify({ orgName, email, displayName, password }),
     }),
 };
 

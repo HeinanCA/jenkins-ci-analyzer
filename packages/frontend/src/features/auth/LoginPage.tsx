@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { colors, cardStyle } from "../../theme/mantine-theme";
+import { colors, cardStyle, metricStyle } from "../../theme/mantine-theme";
 import {
   Stack,
   Title,
@@ -13,12 +13,22 @@ import {
   Container,
   Box,
   Anchor,
-  Divider,
 } from "@mantine/core";
 import { tigAuth, tigSetup, tigInstances } from "../../api/tig-client";
 import { useAuthStore } from "../../store/auth-store";
 
 type Mode = "signin" | "signup" | "setup";
+
+const inputStyles = {
+  input: {
+    backgroundColor: "rgba(35, 38, 45, 0.6)",
+    border: `1px solid ${colors.border}`,
+    color: colors.text,
+    "&::placeholder": { color: colors.textMuted },
+    "&:focus": { borderColor: colors.accent },
+  },
+  label: { color: colors.textSecondary, fontSize: 12, fontWeight: 500 },
+};
 
 export function LoginPage() {
   const [mode, setMode] = useState<Mode>("signin");
@@ -28,7 +38,6 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Setup fields
   const [jenkinsUrl, setJenkinsUrl] = useState("");
   const [jenkinsUser, setJenkinsUser] = useState("");
   const [jenkinsToken, setJenkinsToken] = useState("");
@@ -42,16 +51,14 @@ export function LoginPage() {
   const loadOrgAndInstance = async () => {
     try {
       const setup = await tigSetup.getStatus();
-      if (setup.organization) {
-        setOrganizationId(setup.organization.id);
-      }
+      if (setup.organization) setOrganizationId(setup.organization.id);
       const instances = await tigInstances.list();
       if (instances.length > 0) {
         setInstanceId(instances[0].id);
         return true;
       }
     } catch {
-      // Non-critical
+      /* non-critical */
     }
     return false;
   };
@@ -62,19 +69,12 @@ export function LoginPage() {
     try {
       const result = await tigAuth.signIn(email, password);
       if (result?.user) {
-        setUser({
-          id: result.user.id,
-          email: result.user.email,
-          name: result.user.name,
-        });
+        setUser({ id: result.user.id, email: result.user.email, name: result.user.name });
         const hasInstance = await loadOrgAndInstance();
-        if (hasInstance) {
-          navigate("/");
-        } else {
-          setMode("setup");
-        }
+        navigate(hasInstance ? "/" : "/");
+        if (!hasInstance) setMode("setup");
       } else {
-        setError(result?.message ?? "Login failed");
+        setError(result?.message ?? "Invalid credentials");
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
@@ -84,12 +84,8 @@ export function LoginPage() {
   };
 
   const handleSignUp = async () => {
-    if (!name.trim()) {
-      setError("Name is required");
-      return;
-    }
-    if (!email.trim() || !password.trim()) {
-      setError("Email and password are required");
+    if (!name.trim() || !email.trim() || !password.trim()) {
+      setError("All fields are required");
       return;
     }
     setLoading(true);
@@ -97,12 +93,7 @@ export function LoginPage() {
     try {
       const result = await tigAuth.signUp(email, password, name);
       if (result?.user) {
-        setUser({
-          id: result.user.id,
-          email: result.user.email,
-          name: result.user.name,
-        });
-        // New user — go to setup
+        setUser({ id: result.user.id, email: result.user.email, name: result.user.name });
         setMode("setup");
       } else {
         setError(result?.message ?? "Sign up failed");
@@ -122,12 +113,9 @@ export function LoginPage() {
     setLoading(true);
     setError(null);
     try {
-      // Create org
       const orgResult = await tigSetup.create(orgName, email, name);
       if (orgResult?.organization) {
         setOrganizationId(orgResult.organization.id);
-
-        // Create instance
         const instance = await tigInstances.create(
           "Jenkins",
           jenkinsUrl,
@@ -149,51 +137,75 @@ export function LoginPage() {
     }
   };
 
-  const subtitle =
-    mode === "signin"
-      ? "Sign in to continue"
-      : mode === "signup"
-        ? "Create your account"
-        : "Connect your Jenkins instance";
-
   return (
     <Box
       mih="100vh"
       style={{
-        background: `linear-gradient(135deg, ${colors.bg} 0%, ${colors.gradientMid} 50%, ${colors.gradientEnd} 100%)`,
+        background: `radial-gradient(ellipse at top, ${colors.gradientEnd} 0%, ${colors.bg} 60%)`,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
       }}
     >
-      <Container size="xs">
+      <Container size={420}>
+        {/* Logo */}
+        <Stack align="center" gap={4} mb="xl">
+          <Title
+            order={1}
+            style={{
+              ...metricStyle,
+              fontSize: 36,
+              background: colors.accentGradient,
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+            }}
+          >
+            PulsCI
+          </Title>
+          <Text size="xs" c={colors.textMuted} fw={500}>
+            CI/CD diagnostics by That Infrastructure Guy
+          </Text>
+        </Stack>
+
         <Card
-          p="xl"
-          radius="md"
+          p={32}
+          radius={12}
           style={{
             ...cardStyle,
-            boxShadow: "0 4px 24px rgba(0, 0, 0, 0.4)",
+            boxShadow: "0 8px 32px rgba(0, 0, 0, 0.5), 0 0 80px rgba(245, 103, 64, 0.03)",
           }}
         >
-          <Stack gap="md">
-            <Stack align="center" gap="xs">
-              <Title
-                order={2}
-                style={{
-                  background: colors.accentGradient,
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                }}
-              >
-                PulsCI
-              </Title>
-              <Text size="sm" c={colors.textTertiary}>
-                {subtitle}
+          <Stack gap="lg">
+            {/* Mode title */}
+            <Box>
+              <Text size="lg" fw={700} c={colors.text}>
+                {mode === "signin"
+                  ? "Welcome back"
+                  : mode === "signup"
+                    ? "Get started"
+                    : "Connect Jenkins"}
               </Text>
-            </Stack>
+              <Text size="xs" c={colors.textTertiary} mt={4}>
+                {mode === "signin"
+                  ? "Sign in to your PulsCI account"
+                  : mode === "signup"
+                    ? "Create your account to start diagnosing builds"
+                    : "PulsCI needs access to analyze your build logs"}
+              </Text>
+            </Box>
 
             {error && (
-              <Alert color="red" variant="light">
+              <Alert
+                color="red"
+                variant="light"
+                styles={{
+                  root: {
+                    backgroundColor: "rgba(255, 107, 107, 0.08)",
+                    border: `1px solid rgba(255, 107, 107, 0.2)`,
+                  },
+                  message: { color: colors.failure, fontSize: 13 },
+                }}
+              >
                 {error}
               </Alert>
             )}
@@ -206,6 +218,7 @@ export function LoginPage() {
                   value={email}
                   onChange={(e) => setEmail(e.currentTarget.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleSignIn()}
+                  styles={inputStyles}
                 />
                 <PasswordInput
                   label="Password"
@@ -213,24 +226,28 @@ export function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.currentTarget.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleSignIn()}
+                  styles={inputStyles}
                 />
-                <Button fullWidth loading={loading} color="orange" onClick={handleSignIn}>
+                <Button
+                  fullWidth
+                  loading={loading}
+                  onClick={handleSignIn}
+                  size="md"
+                  style={{
+                    background: colors.accentGradient,
+                    border: "none",
+                    fontWeight: 600,
+                  }}
+                >
                   Sign In
                 </Button>
-                <Divider
-                  label="or"
-                  labelPosition="center"
-                  styles={{ label: { color: colors.textMuted } }}
-                />
-                <Text size="xs" c={colors.textTertiary} ta="center">
+                <Text size="xs" c={colors.textMuted} ta="center">
                   Don't have an account?{" "}
                   <Anchor
                     size="xs"
                     c={colors.accent}
-                    onClick={() => {
-                      setError(null);
-                      setMode("signup");
-                    }}
+                    fw={600}
+                    onClick={() => { setError(null); setMode("signup"); }}
                   >
                     Sign up
                   </Anchor>
@@ -245,12 +262,14 @@ export function LoginPage() {
                   placeholder="Your name"
                   value={name}
                   onChange={(e) => setName(e.currentTarget.value)}
+                  styles={inputStyles}
                 />
                 <TextInput
                   label="Email"
                   placeholder="you@company.com"
                   value={email}
                   onChange={(e) => setEmail(e.currentTarget.value)}
+                  styles={inputStyles}
                 />
                 <PasswordInput
                   label="Password"
@@ -258,19 +277,28 @@ export function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.currentTarget.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleSignUp()}
+                  styles={inputStyles}
                 />
-                <Button fullWidth loading={loading} color="orange" onClick={handleSignUp}>
+                <Button
+                  fullWidth
+                  loading={loading}
+                  onClick={handleSignUp}
+                  size="md"
+                  style={{
+                    background: colors.accentGradient,
+                    border: "none",
+                    fontWeight: 600,
+                  }}
+                >
                   Create Account
                 </Button>
-                <Text size="xs" c={colors.textTertiary} ta="center">
+                <Text size="xs" c={colors.textMuted} ta="center">
                   Already have an account?{" "}
                   <Anchor
                     size="xs"
                     c={colors.accent}
-                    onClick={() => {
-                      setError(null);
-                      setMode("signin");
-                    }}
+                    fw={600}
+                    onClick={() => { setError(null); setMode("signin"); }}
                   >
                     Sign in
                   </Anchor>
@@ -280,32 +308,33 @@ export function LoginPage() {
 
             {mode === "setup" && (
               <>
-                <Text size="xs" c={colors.textSecondary}>
-                  Connect PulsCI to your Jenkins so we can start analyzing
-                  your builds.
-                </Text>
                 <TextInput
-                  label="Organization Name"
+                  label="Organization"
                   placeholder="e.g. Neteera"
                   value={orgName}
                   onChange={(e) => setOrgName(e.currentTarget.value)}
+                  styles={inputStyles}
                 />
-                <Divider
-                  label="Jenkins Connection"
-                  labelPosition="center"
-                  styles={{ label: { color: colors.textMuted } }}
+                <Box
+                  style={{
+                    height: 1,
+                    background: `linear-gradient(90deg, transparent, ${colors.border}, transparent)`,
+                    margin: "4px 0",
+                  }}
                 />
                 <TextInput
                   label="Jenkins URL"
                   placeholder="https://jenkins.yourcompany.com"
                   value={jenkinsUrl}
                   onChange={(e) => setJenkinsUrl(e.currentTarget.value)}
+                  styles={inputStyles}
                 />
                 <TextInput
                   label="Username"
                   placeholder="Jenkins username"
                   value={jenkinsUser}
                   onChange={(e) => setJenkinsUser(e.currentTarget.value)}
+                  styles={inputStyles}
                 />
                 <PasswordInput
                   label="API Token"
@@ -313,10 +342,24 @@ export function LoginPage() {
                   value={jenkinsToken}
                   onChange={(e) => setJenkinsToken(e.currentTarget.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleSetup()}
+                  styles={inputStyles}
                 />
-                <Button fullWidth loading={loading} color="orange" onClick={handleSetup}>
+                <Button
+                  fullWidth
+                  loading={loading}
+                  onClick={handleSetup}
+                  size="md"
+                  style={{
+                    background: colors.accentGradient,
+                    border: "none",
+                    fontWeight: 600,
+                  }}
+                >
                   Connect & Start
                 </Button>
+                <Text size="xs" c={colors.textMuted} ta="center">
+                  You can find your API token in Jenkins → Your Name → Configure → API Token
+                </Text>
               </>
             )}
           </Stack>

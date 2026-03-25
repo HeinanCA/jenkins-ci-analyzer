@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { eq } from "drizzle-orm";
+import { lookup } from "node:dns/promises";
 import { db } from "../db/connection";
 import { ciInstances } from "../db/schema";
 import { requireAuth } from "../middleware/auth";
@@ -13,6 +14,80 @@ import {
   jenkinsGet,
   jenkinsGetText,
 } from "../services/jenkins-client";
+
+const MAX_NAME_LENGTH = 200;
+const MAX_URL_LENGTH = 2048;
+const MAX_TOKEN_LENGTH = 500;
+const MAX_USERNAME_LENGTH = 200;
+
+function isPrivateIp(ip: string): boolean {
+  // IPv4 private/reserved ranges
+  if (
+    ip.startsWith("10.") ||
+    ip.startsWith("192.168.") ||
+    ip.startsWith("127.") ||
+    ip.startsWith("0.") ||
+    ip.startsWith("169.254.") ||
+    ip === "::1" ||
+    ip === "::ffff:127.0.0.1"
+  ) {
+    return true;
+  }
+  // 172.16.0.0/12
+  const match = ip.match(/^172\.(\d+)\./);
+  if (match && Number(match[1]) >= 16 && Number(match[1]) <= 31) {
+    return true;
+  }
+  return false;
+}
+
+async function validateBaseUrl(
+  url: string,
+): Promise<{ valid: true } | { valid: false; error: string }> {
+  try {
+    const parsed = new URL(url);
+    if (!["https:", "http:"].includes(parsed.protocol)) {
+      return { valid: false, error: "baseUrl must use http or https" };
+    }
+    const hostname = parsed.hostname.toLowerCase();
+    // Block obviously internal hostnames
+    if (
+      hostname === "localhost" ||
+      hostname === "127.0.0.1" ||
+      hostname === "0.0.0.0" ||
+      hostname === "[::1]" ||
+      hostname.endsWith(".internal") ||
+      hostname.endsWith(".local")
+    ) {
+      return {
+        valid: false,
+        error: "baseUrl cannot point to internal or metadata addresses",
+      };
+    }
+    // Check if hostname statically looks like a private IP
+    if (isPrivateIp(hostname)) {
+      return {
+        valid: false,
+        error: "baseUrl cannot point to internal or metadata addresses",
+      };
+    }
+    // DNS resolution check — hostname may resolve to internal IP
+    try {
+      const { address } = await lookup(hostname);
+      if (isPrivateIp(address)) {
+        return {
+          valid: false,
+          error: "baseUrl resolves to an internal address",
+        };
+      }
+    } catch {
+      return { valid: false, error: "baseUrl hostname could not be resolved" };
+    }
+    return { valid: true };
+  } catch {
+    return { valid: false, error: "baseUrl is not a valid URL" };
+  }
+}
 
 export async function instanceRoutes(app: FastifyInstance) {
   // All instance routes require auth
@@ -85,40 +160,26 @@ export async function instanceRoutes(app: FastifyInstance) {
       });
     }
 
+    // Input length validation
+    if (
+      name.length > MAX_NAME_LENGTH ||
+      baseUrl.length > MAX_URL_LENGTH ||
+      username.length > MAX_USERNAME_LENGTH ||
+      token.length > MAX_TOKEN_LENGTH ||
+      organizationId.length > 100
+    ) {
+      return reply.status(400).send({
+        data: null,
+        error: "One or more fields exceed maximum allowed length",
+      });
+    }
+
     const normalizedUrl = baseUrl.replace(/\/$/, "");
 
-    // SSRF protection: validate baseUrl
-    try {
-      const parsed = new URL(normalizedUrl);
-      if (!["https:", "http:"].includes(parsed.protocol)) {
-        return reply
-          .status(400)
-          .send({ data: null, error: "baseUrl must use http or https" });
-      }
-      const hostname = parsed.hostname.toLowerCase();
-      // Block internal/metadata addresses
-      if (
-        hostname === "localhost" ||
-        hostname === "127.0.0.1" ||
-        hostname === "0.0.0.0" ||
-        hostname.startsWith("169.254.") ||
-        hostname.startsWith("10.") ||
-        hostname.startsWith("192.168.") ||
-        hostname.match(/^172\.(1[6-9]|2\d|3[01])\./) ||
-        hostname === "[::1]" ||
-        hostname.endsWith(".internal")
-      ) {
-        return reply
-          .status(400)
-          .send({
-            data: null,
-            error: "baseUrl cannot point to internal or metadata addresses",
-          });
-      }
-    } catch {
-      return reply
-        .status(400)
-        .send({ data: null, error: "baseUrl is not a valid URL" });
+    // SSRF protection: validate baseUrl including DNS resolution check
+    const urlCheck = await validateBaseUrl(normalizedUrl);
+    if (!urlCheck.valid) {
+      return reply.status(400).send({ data: null, error: urlCheck.error });
     }
 
     const encrypted = encryptCredentials({ username, token });
@@ -156,6 +217,27 @@ export async function instanceRoutes(app: FastifyInstance) {
     const { id } = request.params;
     const { name, baseUrl, username, token, isActive, crawlConfig } =
       request.body;
+
+    // Input length validation
+    if (
+      (name !== undefined && name.length > MAX_NAME_LENGTH) ||
+      (baseUrl !== undefined && baseUrl.length > MAX_URL_LENGTH) ||
+      (username !== undefined && username.length > MAX_USERNAME_LENGTH) ||
+      (token !== undefined && token.length > MAX_TOKEN_LENGTH)
+    ) {
+      return reply.status(400).send({
+        data: null,
+        error: "One or more fields exceed maximum allowed length",
+      });
+    }
+
+    // SSRF protection on baseUrl update
+    if (baseUrl !== undefined) {
+      const urlCheck = await validateBaseUrl(baseUrl.replace(/\/$/, ""));
+      if (!urlCheck.valid) {
+        return reply.status(400).send({ data: null, error: urlCheck.error });
+      }
+    }
 
     const updates: Record<string, unknown> = {};
     if (name !== undefined) updates["name"] = name;
@@ -264,10 +346,36 @@ export async function instanceRoutes(app: FastifyInstance) {
         instance.credentials as EncryptedCredentials,
       );
       const jenkinsPath = request.params["*"];
+
+      // Path traversal protection: reject paths with .. or protocol prefixes
+      if (
+        jenkinsPath.includes("..") ||
+        jenkinsPath.startsWith("/") ||
+        jenkinsPath.includes("://")
+      ) {
+        return reply
+          .status(400)
+          .send({ data: null, error: "Invalid proxy path" });
+      }
+
+      // Limit proxy path length
+      if (jenkinsPath.length > 2048) {
+        return reply
+          .status(400)
+          .send({ data: null, error: "Proxy path too long" });
+      }
+
       const queryString = request.url.includes("?")
         ? request.url.slice(request.url.indexOf("?"))
         : "";
       const url = `${instance.baseUrl}/${jenkinsPath}${queryString}`;
+
+      // Verify the constructed URL is still under the instance baseUrl
+      if (!url.startsWith(instance.baseUrl + "/")) {
+        return reply
+          .status(400)
+          .send({ data: null, error: "Invalid proxy path" });
+      }
 
       try {
         if (jenkinsPath.endsWith("consoleText")) {
@@ -276,10 +384,10 @@ export async function instanceRoutes(app: FastifyInstance) {
         }
         const data = await jenkinsGet(url, credentials);
         return { data, error: null };
-      } catch (error) {
-        const message =
-          error instanceof Error ? error.message : "Jenkins proxy error";
-        return reply.status(502).send({ data: null, error: message });
+      } catch {
+        return reply
+          .status(502)
+          .send({ data: null, error: "Failed to proxy request to Jenkins" });
       }
     },
   );

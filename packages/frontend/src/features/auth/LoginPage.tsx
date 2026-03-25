@@ -50,8 +50,6 @@ export function LoginPage() {
 
   const loadOrgAndInstance = async () => {
     try {
-      const setup = await tigSetup.getStatus();
-      if (setup.organization) setOrganizationId(setup.organization.id);
       const instances = await tigInstances.list();
       if (instances.length > 0) {
         setInstanceId(instances[0].id);
@@ -102,27 +100,8 @@ export function LoginPage() {
           email: result.user.email,
           name: result.user.name,
         });
-        // Check if org already exists (first user already set up)
         const hasInstance = await loadOrgAndInstance();
-        if (hasInstance) {
-          navigate("/");
-        } else {
-          const status = await tigSetup.getStatus();
-          if (status.isSetUp && status.organization) {
-            // Auto-join existing org, skip setup
-            await tigSetup.create(
-              status.organization.name,
-              email,
-              name,
-              password,
-            );
-            setOrganizationId(status.organization.id);
-            await loadOrgAndInstance();
-            navigate("/");
-          } else {
-            setMode("setup");
-          }
-        }
+        navigate(hasInstance ? "/" : "/");
       } else {
         setError(result?.message ?? "Sign up failed");
       }

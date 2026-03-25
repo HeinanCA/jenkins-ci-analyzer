@@ -53,8 +53,14 @@ export async function dashboardRoutes(app: FastifyInstance) {
   }>("/api/v1/dashboard/failures", async (request) => {
     const instanceId = request.query.instance_id;
     const teamId = request.query.team_id;
-    const limit = Math.min(Number(request.query.limit ?? 50), 100);
-    const days = Number(request.query.days ?? 3);
+    const rawLimit = Number(request.query.limit ?? 50);
+    const limit = Number.isFinite(rawLimit)
+      ? Math.max(1, Math.min(rawLimit, 100))
+      : 50;
+    const rawDays = Number(request.query.days ?? 3);
+    const days = Number.isFinite(rawDays)
+      ? Math.max(1, Math.min(rawDays, 90))
+      : 3;
     const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 
     // Load team patterns if filtering by team

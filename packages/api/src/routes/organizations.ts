@@ -105,17 +105,16 @@ export async function organizationRoutes(app: FastifyInstance) {
     });
   });
 
-  // Check setup status — no auth required
+  // Check setup status — no auth required, but only expose minimal info
   app.get("/api/v1/setup/status", async () => {
     const existingOrgs = await db
-      .select({ id: organizations.id, name: organizations.name })
+      .select({ id: organizations.id })
       .from(organizations)
       .limit(1);
 
     return {
       data: {
         isSetUp: existingOrgs.length > 0,
-        organization: existingOrgs[0] ?? null,
       },
       error: null,
     };

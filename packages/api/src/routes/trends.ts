@@ -9,6 +9,14 @@ type TrendsQuery = {
   Querystring: { instance_id?: string; days?: string; team_id?: string };
 };
 
+const MAX_DAYS = 365;
+
+function clampDays(input: string | undefined, defaultDays: number): number {
+  const days = Number(input ?? defaultDays);
+  if (!Number.isFinite(days) || days < 1) return defaultDays;
+  return Math.min(days, MAX_DAYS);
+}
+
 // Resolve team glob patterns to a set of job IDs
 async function resolveTeamJobIds(teamId: string): Promise<string[]> {
   const [team] = await db
@@ -51,7 +59,7 @@ export async function trendsRoutes(app: FastifyInstance) {
 
   // Failure rate over time — daily buckets
   app.get<TrendsQuery>("/api/v1/trends/failure-rate", async (request) => {
-    const days = Number(request.query.days ?? 7);
+    const days = clampDays(request.query.days, 7);
     const since = new Date(
       Date.now() - days * 24 * 60 * 60 * 1000,
     ).toISOString();
@@ -86,7 +94,7 @@ export async function trendsRoutes(app: FastifyInstance) {
 
   // MTTR — mean time to recovery
   app.get<TrendsQuery>("/api/v1/trends/mttr", async (request) => {
-    const days = Number(request.query.days ?? 30);
+    const days = clampDays(request.query.days, 30);
     const since = new Date(
       Date.now() - days * 24 * 60 * 60 * 1000,
     ).toISOString();
@@ -131,7 +139,7 @@ export async function trendsRoutes(app: FastifyInstance) {
 
   // Build frequency — daily
   app.get<TrendsQuery>("/api/v1/trends/build-frequency", async (request) => {
-    const days = Number(request.query.days ?? 7);
+    const days = clampDays(request.query.days, 7);
     const since = new Date(
       Date.now() - days * 24 * 60 * 60 * 1000,
     ).toISOString();
@@ -163,7 +171,7 @@ export async function trendsRoutes(app: FastifyInstance) {
 
   // Classification breakdown — infra vs code
   app.get<TrendsQuery>("/api/v1/trends/classification", async (request) => {
-    const days = Number(request.query.days ?? 7);
+    const days = clampDays(request.query.days, 7);
     const since = new Date(
       Date.now() - days * 24 * 60 * 60 * 1000,
     ).toISOString();

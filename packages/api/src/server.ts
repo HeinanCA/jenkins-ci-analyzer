@@ -15,7 +15,10 @@ const PORT = Number(process.env["PORT"] ?? 3000);
 const HOST = process.env["HOST"] ?? "0.0.0.0";
 const ALLOWED_ORIGINS = (
   process.env["CORS_ORIGINS"] ?? "http://localhost:8090,http://localhost:5173"
-).split(",");
+)
+  .split(",")
+  .map((o) => o.trim())
+  .filter(Boolean);
 
 // Simple in-memory rate limiter for auth endpoints
 const authAttempts = new Map<string, { count: number; resetAt: number }>();
@@ -29,9 +32,21 @@ function isAuthRateLimited(ip: string): boolean {
     authAttempts.set(ip, { count: 1, resetAt: now + AUTH_RATE_WINDOW });
     return false;
   }
-  entry.count++;
-  return entry.count > AUTH_RATE_LIMIT;
+  // Create new entry instead of mutating
+  const newCount = entry.count + 1;
+  authAttempts.set(ip, { count: newCount, resetAt: entry.resetAt });
+  return newCount > AUTH_RATE_LIMIT;
 }
+
+// Periodic cleanup of expired rate limit entries to prevent memory leak
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, entry] of authAttempts) {
+    if (now > entry.resetAt) {
+      authAttempts.delete(ip);
+    }
+  }
+}, AUTH_RATE_WINDOW);
 
 const app = Fastify({
   logger: true,
@@ -40,7 +55,10 @@ const app = Fastify({
 
     return http.createServer((req, res) => {
       // Block sign-up entirely — invitation-only
-      if (req.url?.includes("sign-up")) {
+      // Use pathname parsing to avoid false positives on query strings
+      const reqUrl = req.url ?? "";
+      const pathname = reqUrl.split("?")[0];
+      if (pathname.includes("/sign-up")) {
         res.writeHead(403, { "Content-Type": "application/json" });
         res.end(
           JSON.stringify({
@@ -53,10 +71,12 @@ const app = Fastify({
       // Route /api/auth/* to better-auth directly (bypasses Fastify)
       if (req.url?.startsWith("/api/auth")) {
         const origin = req.headers.origin ?? "";
-        const allowedOrigin = ALLOWED_ORIGINS.includes(origin)
-          ? origin
-          : ALLOWED_ORIGINS[0];
-        res.setHeader("Access-Control-Allow-Origin", allowedOrigin);
+        if (!ALLOWED_ORIGINS.includes(origin)) {
+          res.writeHead(403, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "Origin not allowed" }));
+          return;
+        }
+        res.setHeader("Access-Control-Allow-Origin", origin);
         res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
         res.setHeader(
           "Access-Control-Allow-Headers",
@@ -100,6 +120,36 @@ await app.register(cors, {
     }
   },
   credentials: true,
+});
+
+// Security headers
+app.addHook("onSend", async (_request, reply) => {
+  reply.header("X-Content-Type-Options", "nosniff");
+  reply.header("X-Frame-Options", "DENY");
+  reply.header("X-XSS-Protection", "0");
+  reply.header("Referrer-Policy", "strict-origin-when-cross-origin");
+  reply.header(
+    "Strict-Transport-Security",
+    "max-age=31536000; includeSubDomains",
+  );
+  reply.header("Cache-Control", "no-store");
+});
+
+// Global error handler — never leak stack traces or internal details
+app.setErrorHandler(async (error, _request, reply) => {
+  const statusCode = error.statusCode ?? 500;
+  if (statusCode >= 500) {
+    app.log.error(error);
+    return reply.status(500).send({
+      data: null,
+      error: "Internal server error",
+    });
+  }
+  // Client errors (4xx) — return the message but never the stack
+  return reply.status(statusCode).send({
+    data: null,
+    error: error.message ?? "Request error",
+  });
 });
 
 // Routes

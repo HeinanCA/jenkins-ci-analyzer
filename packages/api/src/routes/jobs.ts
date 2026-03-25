@@ -18,8 +18,12 @@ export async function jobRoutes(app: FastifyInstance) {
     Querystring: { status?: string; limit?: string; offset?: string };
   }>("/api/v1/instances/:instanceId/jobs", async (request) => {
     const { instanceId } = request.params;
-    const limit = Math.min(Number(request.query.limit ?? 100), 2000);
-    const offset = Number(request.query.offset ?? 0);
+    const rawLimit = Number(request.query.limit ?? 100);
+    const limit = Number.isFinite(rawLimit)
+      ? Math.max(1, Math.min(rawLimit, 2000))
+      : 100;
+    const rawOffset = Number(request.query.offset ?? 0);
+    const offset = Number.isFinite(rawOffset) ? Math.max(0, rawOffset) : 0;
     const status = request.query.status;
 
     let query = db
@@ -59,7 +63,10 @@ export async function jobRoutes(app: FastifyInstance) {
     Querystring: { limit?: string };
   }>("/api/v1/jobs/:jobId/builds", async (request, reply) => {
     const { jobId } = request.params;
-    const limit = Math.min(Number(request.query.limit ?? 25), 100);
+    const rawBuildLimit = Number(request.query.limit ?? 25);
+    const limit = Number.isFinite(rawBuildLimit)
+      ? Math.max(1, Math.min(rawBuildLimit, 100))
+      : 25;
 
     const [job] = await db
       .select({ id: jobs.id })
@@ -189,10 +196,11 @@ export async function jobRoutes(app: FastifyInstance) {
       try {
         const log = await jenkinsGetText(url, credentials);
         return reply.type("text/plain").send(log);
-      } catch (error) {
-        const message =
-          error instanceof Error ? error.message : "Failed to fetch log";
-        return reply.status(502).send({ data: null, error: message });
+      } catch {
+        return reply.status(502).send({
+          data: null,
+          error: "Failed to fetch build log from Jenkins",
+        });
       }
     },
   );

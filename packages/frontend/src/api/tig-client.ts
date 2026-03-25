@@ -77,6 +77,14 @@ export const tigSetup = {
       isSetUp: boolean;
       organization: { id: string; name: string } | null;
     }>("/v1/setup/status"),
+  create: (orgName: string, email: string, name: string) =>
+    request<{
+      organization: { id: string; name: string };
+    }>("/v1/setup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ organizationName: orgName, email, name }),
+    }),
 };
 
 // Instances
@@ -91,6 +99,18 @@ export const tigInstances = {
         lastCrawlAt: string | null;
       }[]
     >("/v1/instances"),
+  create: (
+    name: string,
+    baseUrl: string,
+    username: string,
+    token: string,
+    organizationId: string,
+  ) =>
+    request<{ id: string; name: string; baseUrl: string }>("/v1/instances", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, baseUrl, username, token, organizationId }),
+    }),
   jobs: (instanceId: string, limit = 2000) =>
     request<
       {

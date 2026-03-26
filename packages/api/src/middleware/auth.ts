@@ -1,9 +1,7 @@
 import type { FastifyRequest, FastifyReply } from "fastify";
-import { eq } from "drizzle-orm";
 import { auth } from "../auth";
 import { fromNodeHeaders } from "better-auth/node";
-import { db, sql } from "../db/connection";
-import { users } from "../db/schema";
+import { sql } from "../db/connection";
 
 // ─── Org lookup cache (email → { orgId, role, expiresAt }) ──────
 interface OrgCacheEntry {
@@ -63,16 +61,14 @@ export async function requireAuth(
 
   if (!orgEntry) {
     try {
-      const rows = await db
-        .select({
-          organizationId: users.organizationId,
-          role: users.role,
-        })
-        .from(users)
-        .where(eq(users.email, email))
-        .limit(1);
+      // Use SECURITY DEFINER function to bypass RLS — org context isn't set yet
+      const rows = await sql`
+        SELECT * FROM lookup_user_org(${email})
+      `;
 
-      const row = rows[0];
+      const row = rows[0] as
+        | { organization_id: string; role: string }
+        | undefined;
       if (!row) {
         return reply.status(403).send({
           data: null,
@@ -80,7 +76,7 @@ export async function requireAuth(
         });
       }
 
-      orgEntry = setCachedOrg(email, row.organizationId, row.role);
+      orgEntry = setCachedOrg(email, row.organization_id, row.role);
     } catch (error) {
       request.log.error(error, "Failed to resolve org context");
       return reply.status(500).send({

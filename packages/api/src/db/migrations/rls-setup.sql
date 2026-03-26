@@ -153,6 +153,15 @@ AS $$ SELECT EXISTS(SELECT 1 FROM organizations) $$;
 
 ALTER FUNCTION public.has_any_org() OWNER TO pulsci_admin;
 
+-- Lookup user's org — bypasses RLS (needed before org context is set)
+CREATE OR REPLACE FUNCTION public.lookup_user_org(user_email TEXT)
+RETURNS TABLE(organization_id UUID, role TEXT)
+SECURITY DEFINER
+LANGUAGE sql
+AS $$ SELECT organization_id, role FROM users WHERE email = user_email LIMIT 1 $$;
+
+ALTER FUNCTION public.lookup_user_org(TEXT) OWNER TO pulsci_admin;
+
 -- ============================================================
 -- STEP 7b: Transfer table ownership to pulsci_admin
 -- (FORCE ROW LEVEL SECURITY only works on non-owner roles)

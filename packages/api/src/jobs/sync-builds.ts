@@ -30,7 +30,17 @@ function jobPathToJenkinsUrl(baseUrl: string, fullPath: string): string {
 }
 
 export const syncBuilds: Task = async (payload, helpers) => {
-  const { instanceId } = payload as { instanceId: string };
+  const { instanceId, organizationId } = payload as {
+    instanceId: string;
+    organizationId: string;
+  };
+
+  if (!organizationId) {
+    helpers.logger.error(
+      `sync_builds for instance ${instanceId} missing organizationId — aborting`,
+    );
+    return;
+  }
 
   const [instance] = await db
     .select({
@@ -83,6 +93,7 @@ export const syncBuilds: Task = async (payload, helpers) => {
         await db
           .insert(builds)
           .values({
+            organizationId,
             jobId: job.id,
             buildNumber: build.number,
             result: build.result,
@@ -127,7 +138,7 @@ export const syncBuilds: Task = async (payload, helpers) => {
   for (const build of unanalyzedFailures) {
     await helpers.addJob(
       "analyze_build",
-      { buildId: build.id, instanceId },
+      { buildId: build.id, instanceId, organizationId },
       { jobKey: `analyze:${build.id}`, jobKeyMode: "preserve_run_at" },
     );
   }

@@ -1,24 +1,28 @@
-import type { Task } from 'graphile-worker';
-import { eq } from 'drizzle-orm';
-import { db } from '../db/connection';
-import { ciInstances } from '../db/schema';
+import type { Task } from "graphile-worker";
+import { eq } from "drizzle-orm";
+import { db } from "../db/connection";
+import { ciInstances } from "../db/schema";
 
 export const scheduleCrawls: Task = async (_payload, helpers) => {
   const activeInstances = await db
-    .select({ id: ciInstances.id, name: ciInstances.name })
+    .select({
+      id: ciInstances.id,
+      name: ciInstances.name,
+      organizationId: ciInstances.organizationId,
+    })
     .from(ciInstances)
     .where(eq(ciInstances.isActive, true));
 
   for (const instance of activeInstances) {
     await helpers.addJob(
-      'crawl_instance',
-      { instanceId: instance.id },
-      { jobKey: `crawl:${instance.id}`, jobKeyMode: 'replace' },
+      "crawl_instance",
+      { instanceId: instance.id, organizationId: instance.organizationId },
+      { jobKey: `crawl:${instance.id}`, jobKeyMode: "replace" },
     );
     await helpers.addJob(
-      'snapshot_health',
-      { instanceId: instance.id },
-      { jobKey: `health:${instance.id}`, jobKeyMode: 'replace' },
+      "snapshot_health",
+      { instanceId: instance.id, organizationId: instance.organizationId },
+      { jobKey: `health:${instance.id}`, jobKeyMode: "replace" },
     );
   }
 

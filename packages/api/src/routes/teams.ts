@@ -35,7 +35,9 @@ export async function teamRoutes(app: FastifyInstance) {
   app.addHook("preHandler", requireAuth);
 
   // List teams
-  app.get("/api/v1/teams", async () => {
+  app.get("/api/v1/teams", async (request) => {
+    const orgId = request.tigSession!.org.id;
+
     const allTeams = await db
       .select({
         id: teams.id,
@@ -44,7 +46,8 @@ export async function teamRoutes(app: FastifyInstance) {
         folderPatterns: teams.folderPatterns,
         createdAt: teams.createdAt,
       })
-      .from(teams);
+      .from(teams)
+      .where(eq(teams.organizationId, orgId));
 
     return { data: allTeams, error: null };
   });
@@ -54,17 +57,16 @@ export async function teamRoutes(app: FastifyInstance) {
     Body: {
       name: string;
       ciInstanceId: string;
-      organizationId: string;
       folderPatterns: string[];
     };
   }>("/api/v1/teams", async (request, reply) => {
-    const { name, ciInstanceId, organizationId, folderPatterns } = request.body;
+    const orgId = request.tigSession!.org.id;
+    const { name, ciInstanceId, folderPatterns } = request.body;
 
-    if (!name || !ciInstanceId || !organizationId || !folderPatterns?.length) {
+    if (!name || !ciInstanceId || !folderPatterns?.length) {
       return reply.status(400).send({
         data: null,
-        error:
-          "Missing required fields: name, ciInstanceId, organizationId, folderPatterns",
+        error: "Missing required fields: name, ciInstanceId, folderPatterns",
       });
     }
 
@@ -94,7 +96,7 @@ export async function teamRoutes(app: FastifyInstance) {
 
     const [created] = await db
       .insert(teams)
-      .values({ name, ciInstanceId, organizationId, folderPatterns })
+      .values({ name, ciInstanceId, organizationId: orgId, folderPatterns })
       .returning({
         id: teams.id,
         name: teams.name,
@@ -110,6 +112,8 @@ export async function teamRoutes(app: FastifyInstance) {
     Params: { id: string };
     Body: { name?: string; folderPatterns?: string[] };
   }>("/api/v1/teams/:id", async (request, reply) => {
+    const orgId = request.tigSession!.org.id;
+
     // Input length validation
     if (request.body.name && request.body.name.length > MAX_TEAM_NAME_LENGTH) {
       return reply.status(400).send({
@@ -142,7 +146,9 @@ export async function teamRoutes(app: FastifyInstance) {
     const [updated] = await db
       .update(teams)
       .set(updates)
-      .where(eq(teams.id, request.params.id))
+      .where(
+        and(eq(teams.id, request.params.id), eq(teams.organizationId, orgId)),
+      )
       .returning({
         id: teams.id,
         name: teams.name,
@@ -160,9 +166,13 @@ export async function teamRoutes(app: FastifyInstance) {
   app.delete<{ Params: { id: string } }>(
     "/api/v1/teams/:id",
     async (request, reply) => {
+      const orgId = request.tigSession!.org.id;
+
       const [deleted] = await db
         .delete(teams)
-        .where(eq(teams.id, request.params.id))
+        .where(
+          and(eq(teams.id, request.params.id), eq(teams.organizationId, orgId)),
+        )
         .returning({ id: teams.id });
 
       if (!deleted) {
@@ -177,13 +187,17 @@ export async function teamRoutes(app: FastifyInstance) {
   app.get<{ Params: { id: string } }>(
     "/api/v1/teams/:id/jobs",
     async (request, reply) => {
+      const orgId = request.tigSession!.org.id;
+
       const [team] = await db
         .select({
           ciInstanceId: teams.ciInstanceId,
           folderPatterns: teams.folderPatterns,
         })
         .from(teams)
-        .where(eq(teams.id, request.params.id))
+        .where(
+          and(eq(teams.id, request.params.id), eq(teams.organizationId, orgId)),
+        )
         .limit(1);
 
       if (!team) {

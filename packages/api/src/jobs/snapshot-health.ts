@@ -1,13 +1,13 @@
-import type { Task } from 'graphile-worker';
-import { eq } from 'drizzle-orm';
-import { db } from '../db/connection';
-import { ciInstances, healthSnapshots } from '../db/schema';
+import type { Task } from "graphile-worker";
+import { eq } from "drizzle-orm";
+import { db } from "../db/connection";
+import { ciInstances, healthSnapshots } from "../db/schema";
 import {
   decryptCredentials,
   type EncryptedCredentials,
-} from '../services/credential-vault';
-import { jenkinsGet } from '../services/jenkins-client';
-import { calculateHealth, STUCK_AGENT_THRESHOLD_MS } from '@tig/shared';
+} from "../services/credential-vault";
+import { jenkinsGet } from "../services/jenkins-client";
+import { calculateHealth, STUCK_AGENT_THRESHOLD_MS } from "@tig/shared";
 
 interface JenkinsAgentResponse {
   readonly computer: readonly {
@@ -32,6 +32,7 @@ export const snapshotHealth: Task = async (payload, helpers) => {
 
   const [instance] = await db
     .select({
+      organizationId: ciInstances.organizationId,
       baseUrl: ciInstances.baseUrl,
       credentials: ciInstances.credentials,
     })
@@ -41,6 +42,14 @@ export const snapshotHealth: Task = async (payload, helpers) => {
 
   if (!instance) {
     helpers.logger.error(`Instance ${instanceId} not found`);
+    return;
+  }
+
+  const { organizationId } = instance;
+  if (!organizationId) {
+    helpers.logger.error(
+      `Instance ${instanceId} has no organizationId — aborting health snapshot`,
+    );
     return;
   }
 
@@ -61,7 +70,7 @@ export const snapshotHealth: Task = async (payload, helpers) => {
     ]);
   } catch (error) {
     helpers.logger.error(
-      `Failed to fetch health for instance ${instanceId}: ${error instanceof Error ? error.message : 'unknown'}`,
+      `Failed to fetch health for instance ${instanceId}: ${error instanceof Error ? error.message : "unknown"}`,
     );
     return;
   }
@@ -79,7 +88,9 @@ export const snapshotHealth: Task = async (payload, helpers) => {
       s +
       a.executors.filter((e) => {
         if (!e.currentExecutable?.timestamp) return false;
-        return Date.now() - e.currentExecutable.timestamp > STUCK_AGENT_THRESHOLD_MS;
+        return (
+          Date.now() - e.currentExecutable.timestamp > STUCK_AGENT_THRESHOLD_MS
+        );
       }).length,
     0,
   );
@@ -95,6 +106,7 @@ export const snapshotHealth: Task = async (payload, helpers) => {
   });
 
   await db.insert(healthSnapshots).values({
+    organizationId,
     ciInstanceId: instanceId,
     level: report.level,
     score: report.score,

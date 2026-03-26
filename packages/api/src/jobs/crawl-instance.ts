@@ -19,6 +19,7 @@ export const crawlInstance: Task = async (payload, helpers) => {
   const [instance] = await db
     .select({
       id: ciInstances.id,
+      organizationId: ciInstances.organizationId,
       baseUrl: ciInstances.baseUrl,
       credentials: ciInstances.credentials,
       crawlConfig: ciInstances.crawlConfig,
@@ -29,6 +30,14 @@ export const crawlInstance: Task = async (payload, helpers) => {
 
   if (!instance) {
     helpers.logger.error(`Instance ${instanceId} not found`);
+    return;
+  }
+
+  const { organizationId } = instance;
+  if (!organizationId) {
+    helpers.logger.error(
+      `Instance ${instanceId} has no organizationId — aborting crawl`,
+    );
     return;
   }
 
@@ -52,6 +61,7 @@ export const crawlInstance: Task = async (payload, helpers) => {
     await db
       .insert(jobs)
       .values({
+        organizationId,
         ciInstanceId: instanceId,
         fullPath: job.fullPath,
         name: job.name,
@@ -87,7 +97,7 @@ export const crawlInstance: Task = async (payload, helpers) => {
   // Chain: sync builds after crawl
   await helpers.addJob(
     "sync_builds",
-    { instanceId },
+    { instanceId, organizationId },
     { jobKey: `sync:${instanceId}`, jobKeyMode: "replace" },
   );
 };

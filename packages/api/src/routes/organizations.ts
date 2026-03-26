@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { db } from "../db/connection";
 import { organizations, users } from "../db/schema";
 import { requireAuth } from "../middleware/auth";
@@ -106,15 +106,14 @@ export async function organizationRoutes(app: FastifyInstance) {
   });
 
   // Check setup status — no auth required, but only expose minimal info
+  // Uses SECURITY DEFINER function to bypass RLS (no org context on this endpoint)
   app.get("/api/v1/setup/status", async () => {
-    const existingOrgs = await db
-      .select({ id: organizations.id })
-      .from(organizations)
-      .limit(1);
+    const result = await db.execute(sql`SELECT has_any_org() as has_org`);
+    const hasOrg = result[0]?.has_org === true;
 
     return {
       data: {
-        isSetUp: existingOrgs.length > 0,
+        isSetUp: hasOrg,
       },
       error: null,
     };
@@ -125,25 +124,7 @@ export async function organizationRoutes(app: FastifyInstance) {
     "/api/v1/organization",
     { preHandler: requireAuth },
     async (request, reply) => {
-      // Get the org for the current user
-      const session = request.tigSession;
-      if (!session) {
-        return reply
-          .status(401)
-          .send({ data: null, error: "Authentication required" });
-      }
-
-      const [user] = await db
-        .select({ organizationId: users.organizationId })
-        .from(users)
-        .where(eq(users.email, session.user.email))
-        .limit(1);
-
-      if (!user) {
-        return reply
-          .status(404)
-          .send({ data: null, error: "User not found in organization" });
-      }
+      const orgId = request.tigSession!.org.id;
 
       const [org] = await db
         .select({
@@ -152,10 +133,16 @@ export async function organizationRoutes(app: FastifyInstance) {
           slug: organizations.slug,
         })
         .from(organizations)
-        .where(eq(organizations.id, user.organizationId))
+        .where(eq(organizations.id, orgId))
         .limit(1);
 
-      return { data: org ?? null, error: null };
+      if (!org) {
+        return reply
+          .status(404)
+          .send({ data: null, error: "Organization not found" });
+      }
+
+      return { data: org, error: null };
     },
   );
 }

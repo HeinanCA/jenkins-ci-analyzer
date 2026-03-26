@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { sql, eq } from "drizzle-orm";
+import { sql, eq, and } from "drizzle-orm";
 import { db } from "../db/connection";
 import { requireAuth } from "../middleware/auth";
 import { teams, jobs } from "../db/schema";
@@ -17,19 +17,23 @@ function clampDays(input: string | undefined, defaultDays: number): number {
   return Math.min(days, MAX_DAYS);
 }
 
-// Resolve team glob patterns to a set of job IDs
-async function resolveTeamJobIds(teamId: string): Promise<string[]> {
+// Resolve team glob patterns to a set of job IDs (org-scoped)
+async function resolveTeamJobIds(
+  teamId: string,
+  orgId: string,
+): Promise<string[]> {
   const [team] = await db
     .select({ folderPatterns: teams.folderPatterns })
     .from(teams)
-    .where(eq(teams.id, teamId))
+    .where(and(eq(teams.id, teamId), eq(teams.organizationId, orgId)))
     .limit(1);
 
   if (!team) return [];
 
   const allJobs = await db
     .select({ id: jobs.id, fullPath: jobs.fullPath })
-    .from(jobs);
+    .from(jobs)
+    .where(eq(jobs.organizationId, orgId));
 
   return allJobs
     .filter((j) => jobMatchesTeam(j.fullPath, team.folderPatterns))
@@ -37,9 +41,12 @@ async function resolveTeamJobIds(teamId: string): Promise<string[]> {
 }
 
 function buildFilters(
+  orgId: string,
   instanceId: string | undefined,
   teamJobIds: string[] | null,
 ) {
+  const orgFilter = sql`AND j.organization_id = ${orgId}`;
+
   const instanceFilter = instanceId
     ? sql`AND j.ci_instance_id = ${instanceId}`
     : sql``;
@@ -51,7 +58,7 @@ function buildFilters(
         : sql`AND FALSE`
       : sql``;
 
-  return { instanceFilter, teamFilter };
+  return { orgFilter, instanceFilter, teamFilter };
 }
 
 export async function trendsRoutes(app: FastifyInstance) {
@@ -59,14 +66,16 @@ export async function trendsRoutes(app: FastifyInstance) {
 
   // Failure rate over time — daily buckets
   app.get<TrendsQuery>("/api/v1/trends/failure-rate", async (request) => {
+    const orgId = request.tigSession!.org.id;
     const days = clampDays(request.query.days, 7);
     const since = new Date(
       Date.now() - days * 24 * 60 * 60 * 1000,
     ).toISOString();
     const teamJobIds = request.query.team_id
-      ? await resolveTeamJobIds(request.query.team_id)
+      ? await resolveTeamJobIds(request.query.team_id, orgId)
       : null;
-    const { instanceFilter, teamFilter } = buildFilters(
+    const { orgFilter, instanceFilter, teamFilter } = buildFilters(
+      orgId,
       request.query.instance_id,
       teamJobIds,
     );
@@ -83,6 +92,7 @@ export async function trendsRoutes(app: FastifyInstance) {
       FROM builds b
       JOIN jobs j ON j.id = b.job_id
       WHERE b.started_at >= ${since}
+        ${orgFilter}
         ${instanceFilter}
         ${teamFilter}
       GROUP BY DATE(b.started_at)
@@ -94,14 +104,16 @@ export async function trendsRoutes(app: FastifyInstance) {
 
   // MTTR — mean time to recovery
   app.get<TrendsQuery>("/api/v1/trends/mttr", async (request) => {
+    const orgId = request.tigSession!.org.id;
     const days = clampDays(request.query.days, 30);
     const since = new Date(
       Date.now() - days * 24 * 60 * 60 * 1000,
     ).toISOString();
     const teamJobIds = request.query.team_id
-      ? await resolveTeamJobIds(request.query.team_id)
+      ? await resolveTeamJobIds(request.query.team_id, orgId)
       : null;
-    const { instanceFilter, teamFilter } = buildFilters(
+    const { orgFilter, instanceFilter, teamFilter } = buildFilters(
+      orgId,
       request.query.instance_id,
       teamJobIds,
     );
@@ -122,6 +134,7 @@ export async function trendsRoutes(app: FastifyInstance) {
         JOIN jobs j ON j.id = b.job_id
         WHERE b.result IN ('FAILURE', 'UNSTABLE')
           AND b.started_at >= ${since}
+          ${orgFilter}
           ${instanceFilter}
           ${teamFilter}
       )
@@ -139,14 +152,16 @@ export async function trendsRoutes(app: FastifyInstance) {
 
   // Build frequency — daily
   app.get<TrendsQuery>("/api/v1/trends/build-frequency", async (request) => {
+    const orgId = request.tigSession!.org.id;
     const days = clampDays(request.query.days, 7);
     const since = new Date(
       Date.now() - days * 24 * 60 * 60 * 1000,
     ).toISOString();
     const teamJobIds = request.query.team_id
-      ? await resolveTeamJobIds(request.query.team_id)
+      ? await resolveTeamJobIds(request.query.team_id, orgId)
       : null;
-    const { instanceFilter, teamFilter } = buildFilters(
+    const { orgFilter, instanceFilter, teamFilter } = buildFilters(
+      orgId,
       request.query.instance_id,
       teamJobIds,
     );
@@ -160,6 +175,7 @@ export async function trendsRoutes(app: FastifyInstance) {
       FROM builds b
       JOIN jobs j ON j.id = b.job_id
       WHERE b.started_at >= ${since}
+        ${orgFilter}
         ${instanceFilter}
         ${teamFilter}
       GROUP BY DATE(b.started_at)
@@ -171,14 +187,16 @@ export async function trendsRoutes(app: FastifyInstance) {
 
   // Classification breakdown — infra vs code
   app.get<TrendsQuery>("/api/v1/trends/classification", async (request) => {
+    const orgId = request.tigSession!.org.id;
     const days = clampDays(request.query.days, 7);
     const since = new Date(
       Date.now() - days * 24 * 60 * 60 * 1000,
     ).toISOString();
     const teamJobIds = request.query.team_id
-      ? await resolveTeamJobIds(request.query.team_id)
+      ? await resolveTeamJobIds(request.query.team_id, orgId)
       : null;
-    const { instanceFilter, teamFilter } = buildFilters(
+    const { orgFilter, instanceFilter, teamFilter } = buildFilters(
+      orgId,
       request.query.instance_id,
       teamJobIds,
     );
@@ -194,6 +212,7 @@ export async function trendsRoutes(app: FastifyInstance) {
       LEFT JOIN build_analyses ba ON ba.build_id = b.id
       WHERE b.result IN ('FAILURE', 'UNSTABLE')
         AND b.started_at >= ${since}
+        ${orgFilter}
         ${instanceFilter}
         ${teamFilter}
       GROUP BY DATE(b.started_at)

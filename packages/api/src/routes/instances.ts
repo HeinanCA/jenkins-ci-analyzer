@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { lookup } from "node:dns/promises";
 import { db } from "../db/connection";
 import { ciInstances } from "../db/schema";
@@ -94,7 +94,9 @@ export async function instanceRoutes(app: FastifyInstance) {
   app.addHook("preHandler", requireAuth);
 
   // List all instances
-  app.get("/api/v1/instances", async () => {
+  app.get("/api/v1/instances", async (request) => {
+    const orgId = request.tigSession!.org.id;
+
     const instances = await db
       .select({
         id: ciInstances.id,
@@ -105,7 +107,8 @@ export async function instanceRoutes(app: FastifyInstance) {
         lastCrawlAt: ciInstances.lastCrawlAt,
         createdAt: ciInstances.createdAt,
       })
-      .from(ciInstances);
+      .from(ciInstances)
+      .where(eq(ciInstances.organizationId, orgId));
 
     return { data: instances, error: null };
   });
@@ -114,6 +117,8 @@ export async function instanceRoutes(app: FastifyInstance) {
   app.get<{ Params: { id: string } }>(
     "/api/v1/instances/:id",
     async (request, reply) => {
+      const orgId = request.tigSession!.org.id;
+
       const instance = await db
         .select({
           id: ciInstances.id,
@@ -126,7 +131,12 @@ export async function instanceRoutes(app: FastifyInstance) {
           createdAt: ciInstances.createdAt,
         })
         .from(ciInstances)
-        .where(eq(ciInstances.id, request.params.id))
+        .where(
+          and(
+            eq(ciInstances.id, request.params.id),
+            eq(ciInstances.organizationId, orgId),
+          ),
+        )
         .limit(1);
 
       if (instance.length === 0) {
@@ -147,16 +157,15 @@ export async function instanceRoutes(app: FastifyInstance) {
       baseUrl: string;
       username: string;
       token: string;
-      organizationId: string;
     };
   }>("/api/v1/instances", async (request, reply) => {
-    const { name, baseUrl, username, token, organizationId } = request.body;
+    const orgId = request.tigSession!.org.id;
+    const { name, baseUrl, username, token } = request.body;
 
-    if (!name || !baseUrl || !username || !token || !organizationId) {
+    if (!name || !baseUrl || !username || !token) {
       return reply.status(400).send({
         data: null,
-        error:
-          "Missing required fields: name, baseUrl, username, token, organizationId",
+        error: "Missing required fields: name, baseUrl, username, token",
       });
     }
 
@@ -165,8 +174,7 @@ export async function instanceRoutes(app: FastifyInstance) {
       name.length > MAX_NAME_LENGTH ||
       baseUrl.length > MAX_URL_LENGTH ||
       username.length > MAX_USERNAME_LENGTH ||
-      token.length > MAX_TOKEN_LENGTH ||
-      organizationId.length > 100
+      token.length > MAX_TOKEN_LENGTH
     ) {
       return reply.status(400).send({
         data: null,
@@ -189,7 +197,7 @@ export async function instanceRoutes(app: FastifyInstance) {
       .values({
         name,
         baseUrl: normalizedUrl,
-        organizationId,
+        organizationId: orgId,
         credentials: encrypted,
       })
       .returning({
@@ -214,6 +222,7 @@ export async function instanceRoutes(app: FastifyInstance) {
       crawlConfig?: Record<string, unknown>;
     };
   }>("/api/v1/instances/:id", async (request, reply) => {
+    const orgId = request.tigSession!.org.id;
     const { id } = request.params;
     const { name, baseUrl, username, token, isActive, crawlConfig } =
       request.body;
@@ -259,7 +268,7 @@ export async function instanceRoutes(app: FastifyInstance) {
     const [updated] = await db
       .update(ciInstances)
       .set(updates)
-      .where(eq(ciInstances.id, id))
+      .where(and(eq(ciInstances.id, id), eq(ciInstances.organizationId, orgId)))
       .returning({
         id: ciInstances.id,
         name: ciInstances.name,
@@ -280,9 +289,16 @@ export async function instanceRoutes(app: FastifyInstance) {
   app.delete<{ Params: { id: string } }>(
     "/api/v1/instances/:id",
     async (request, reply) => {
+      const orgId = request.tigSession!.org.id;
+
       const [deleted] = await db
         .delete(ciInstances)
-        .where(eq(ciInstances.id, request.params.id))
+        .where(
+          and(
+            eq(ciInstances.id, request.params.id),
+            eq(ciInstances.organizationId, orgId),
+          ),
+        )
         .returning({ id: ciInstances.id });
 
       if (!deleted) {
@@ -299,13 +315,20 @@ export async function instanceRoutes(app: FastifyInstance) {
   app.post<{ Params: { id: string } }>(
     "/api/v1/instances/:id/test",
     async (request, reply) => {
+      const orgId = request.tigSession!.org.id;
+
       const [instance] = await db
         .select({
           baseUrl: ciInstances.baseUrl,
           credentials: ciInstances.credentials,
         })
         .from(ciInstances)
-        .where(eq(ciInstances.id, request.params.id))
+        .where(
+          and(
+            eq(ciInstances.id, request.params.id),
+            eq(ciInstances.organizationId, orgId),
+          ),
+        )
         .limit(1);
 
       if (!instance) {
@@ -327,13 +350,20 @@ export async function instanceRoutes(app: FastifyInstance) {
   app.get<{ Params: { id: string; "*": string } }>(
     "/api/v1/instances/:id/proxy/*",
     async (request, reply) => {
+      const orgId = request.tigSession!.org.id;
+
       const [instance] = await db
         .select({
           baseUrl: ciInstances.baseUrl,
           credentials: ciInstances.credentials,
         })
         .from(ciInstances)
-        .where(eq(ciInstances.id, request.params.id))
+        .where(
+          and(
+            eq(ciInstances.id, request.params.id),
+            eq(ciInstances.organizationId, orgId),
+          ),
+        )
         .limit(1);
 
       if (!instance) {

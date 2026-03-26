@@ -9,6 +9,7 @@ import {
   jsonb,
   uniqueIndex,
   primaryKey,
+  index,
 } from "drizzle-orm/pg-core";
 
 // ─── better-auth managed tables ─────────────────────────────────
@@ -92,6 +93,7 @@ export const users = pgTable(
   },
   (table) => [
     uniqueIndex("users_org_email_idx").on(table.organizationId, table.email),
+    index("users_org_id_idx").on(table.organizationId),
   ],
 );
 
@@ -139,6 +141,9 @@ export const teams = pgTable("teams", {
 export const teamMembers = pgTable(
   "team_members",
   {
+    organizationId: uuid("organization_id")
+      .references(() => organizations.id)
+      .notNull(),
     teamId: uuid("team_id")
       .references(() => teams.id)
       .notNull(),
@@ -153,6 +158,9 @@ export const jobs = pgTable(
   "jobs",
   {
     id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id")
+      .references(() => organizations.id)
+      .notNull(),
     ciInstanceId: uuid("ci_instance_id")
       .references(() => ciInstances.id)
       .notNull(),
@@ -175,6 +183,7 @@ export const jobs = pgTable(
       table.ciInstanceId,
       table.fullPath,
     ),
+    index("jobs_org_id_idx").on(table.organizationId),
   ],
 );
 
@@ -182,6 +191,9 @@ export const builds = pgTable(
   "builds",
   {
     id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id")
+      .references(() => organizations.id)
+      .notNull(),
     jobId: uuid("job_id")
       .references(() => jobs.id)
       .notNull(),
@@ -200,11 +212,16 @@ export const builds = pgTable(
   },
   (table) => [
     uniqueIndex("builds_job_number_idx").on(table.jobId, table.buildNumber),
+    index("builds_org_id_idx").on(table.organizationId),
+    index("builds_started_at_idx").on(table.startedAt),
   ],
 );
 
 export const buildAnalyses = pgTable("build_analyses", {
   id: uuid("id").defaultRandom().primaryKey(),
+  organizationId: uuid("organization_id")
+    .references(() => organizations.id)
+    .notNull(),
   buildId: uuid("build_id")
     .references(() => builds.id)
     .notNull()
@@ -232,6 +249,9 @@ export const buildAnalyses = pgTable("build_analyses", {
 
 export const healthSnapshots = pgTable("health_snapshots", {
   id: uuid("id").defaultRandom().primaryKey(),
+  organizationId: uuid("organization_id")
+    .references(() => organizations.id)
+    .notNull(),
   ciInstanceId: uuid("ci_instance_id")
     .references(() => ciInstances.id)
     .notNull(),
@@ -265,6 +285,9 @@ export const alertRules = pgTable("alert_rules", {
 
 export const alertEvents = pgTable("alert_events", {
   id: uuid("id").defaultRandom().primaryKey(),
+  organizationId: uuid("organization_id")
+    .references(() => organizations.id)
+    .notNull(),
   alertRuleId: uuid("alert_rule_id")
     .references(() => alertRules.id)
     .notNull(),
@@ -277,6 +300,9 @@ export const alertEvents = pgTable("alert_events", {
 
 export const patternCandidates = pgTable("pattern_candidates", {
   id: uuid("id").defaultRandom().primaryKey(),
+  organizationId: uuid("organization_id")
+    .references(() => organizations.id)
+    .notNull(),
   ciInstanceId: uuid("ci_instance_id")
     .references(() => ciInstances.id)
     .notNull(),

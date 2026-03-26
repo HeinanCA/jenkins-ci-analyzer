@@ -136,21 +136,22 @@ app.addHook("onSend", async (_request, reply) => {
 });
 
 // Global error handler — never leak stack traces or internal details
-app.setErrorHandler(async (error, _request, reply) => {
-  const statusCode = error.statusCode ?? 500;
-  if (statusCode >= 500) {
-    app.log.error(error);
-    return reply.status(500).send({
+app.setErrorHandler(
+  async (error: Error & { statusCode?: number }, _request, reply) => {
+    const statusCode = error.statusCode ?? 500;
+    if (statusCode >= 500) {
+      app.log.error(error);
+      return reply.status(500).send({
+        data: null,
+        error: "Internal server error",
+      });
+    }
+    return reply.status(statusCode).send({
       data: null,
-      error: "Internal server error",
+      error: error.message ?? "Request error",
     });
-  }
-  // Client errors (4xx) — return the message but never the stack
-  return reply.status(statusCode).send({
-    data: null,
-    error: error.message ?? "Request error",
-  });
-});
+  },
+);
 
 // Routes
 await app.register(organizationRoutes);

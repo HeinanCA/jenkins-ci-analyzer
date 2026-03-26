@@ -23,10 +23,18 @@ function jobPathToConsoleUrl(
 }
 
 export const analyzeBuild: Task = async (payload, helpers) => {
-  const { buildId, instanceId } = payload as {
+  const { buildId, instanceId, organizationId } = payload as {
     buildId: string;
     instanceId: string;
+    organizationId: string;
   };
+
+  if (!organizationId) {
+    helpers.logger.error(
+      `analyze_build for build ${buildId} missing organizationId — aborting`,
+    );
+    return;
+  }
 
   const [existing] = await db
     .select({ id: buildAnalyses.id })
@@ -97,9 +105,21 @@ export const analyzeBuild: Task = async (payload, helpers) => {
   try {
     log = await jenkinsGetText(logUrl, credentials);
   } catch (error) {
+    const message = error instanceof Error ? error.message : "unknown";
     helpers.logger.error(
-      `Failed to fetch log for build ${buildId} (${logUrl}): ${error instanceof Error ? error.message : "unknown"}`,
+      `Failed to fetch log for build ${buildId} (${logUrl}): ${message}`,
     );
+
+    // Insert a stub analysis row so we don't retry endlessly
+    await db.insert(buildAnalyses).values({
+      organizationId,
+      buildId,
+      classification: "unknown",
+      confidence: 0,
+      matches: [],
+      aiSkippedReason: "disabled",
+    });
+
     return;
   }
 
@@ -163,6 +183,7 @@ export const analyzeBuild: Task = async (payload, helpers) => {
   const confidence = aiResult?.confidence ?? regexClassification.confidence;
 
   await db.insert(buildAnalyses).values({
+    organizationId,
     buildId,
     classification,
     confidence,

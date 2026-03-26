@@ -16,8 +16,27 @@ export async function jobRoutes(app: FastifyInstance) {
   app.get<{
     Params: { instanceId: string };
     Querystring: { status?: string; limit?: string; offset?: string };
-  }>("/api/v1/instances/:instanceId/jobs", async (request) => {
+  }>("/api/v1/instances/:instanceId/jobs", async (request, reply) => {
+    const orgId = request.tigSession!.org.id;
     const { instanceId } = request.params;
+
+    // Verify instance belongs to org
+    const [instance] = await db
+      .select({ id: ciInstances.id })
+      .from(ciInstances)
+      .where(
+        and(
+          eq(ciInstances.id, instanceId),
+          eq(ciInstances.organizationId, orgId),
+        ),
+      )
+      .limit(1);
+
+    if (!instance) {
+      return reply
+        .status(404)
+        .send({ data: null, error: "Instance not found" });
+    }
     const rawLimit = Number(request.query.limit ?? 100);
     const limit = Number.isFinite(rawLimit)
       ? Math.max(1, Math.min(rawLimit, 2000))
@@ -62,6 +81,7 @@ export async function jobRoutes(app: FastifyInstance) {
     Params: { jobId: string };
     Querystring: { limit?: string };
   }>("/api/v1/jobs/:jobId/builds", async (request, reply) => {
+    const orgId = request.tigSession!.org.id;
     const { jobId } = request.params;
     const rawBuildLimit = Number(request.query.limit ?? 25);
     const limit = Number.isFinite(rawBuildLimit)
@@ -71,7 +91,7 @@ export async function jobRoutes(app: FastifyInstance) {
     const [job] = await db
       .select({ id: jobs.id })
       .from(jobs)
-      .where(eq(jobs.id, jobId))
+      .where(and(eq(jobs.id, jobId), eq(jobs.organizationId, orgId)))
       .limit(1);
 
     if (!job) {
@@ -98,6 +118,8 @@ export async function jobRoutes(app: FastifyInstance) {
   app.get<{ Params: { buildId: string } }>(
     "/api/v1/builds/:buildId",
     async (request, reply) => {
+      const orgId = request.tigSession!.org.id;
+
       const [build] = await db
         .select({
           id: builds.id,
@@ -108,7 +130,12 @@ export async function jobRoutes(app: FastifyInstance) {
           durationMs: builds.durationMs,
         })
         .from(builds)
-        .where(eq(builds.id, request.params.buildId))
+        .where(
+          and(
+            eq(builds.id, request.params.buildId),
+            eq(builds.organizationId, orgId),
+          ),
+        )
         .limit(1);
 
       if (!build) {
@@ -141,6 +168,8 @@ export async function jobRoutes(app: FastifyInstance) {
   app.get<{ Params: { buildId: string } }>(
     "/api/v1/builds/:buildId/log",
     async (request, reply) => {
+      const orgId = request.tigSession!.org.id;
+
       const [build] = await db
         .select({
           id: builds.id,
@@ -148,7 +177,12 @@ export async function jobRoutes(app: FastifyInstance) {
           buildNumber: builds.buildNumber,
         })
         .from(builds)
-        .where(eq(builds.id, request.params.buildId))
+        .where(
+          and(
+            eq(builds.id, request.params.buildId),
+            eq(builds.organizationId, orgId),
+          ),
+        )
         .limit(1);
 
       if (!build) {
@@ -174,7 +208,12 @@ export async function jobRoutes(app: FastifyInstance) {
           credentials: ciInstances.credentials,
         })
         .from(ciInstances)
-        .where(eq(ciInstances.id, job.ciInstanceId))
+        .where(
+          and(
+            eq(ciInstances.id, job.ciInstanceId),
+            eq(ciInstances.organizationId, orgId),
+          ),
+        )
         .limit(1);
 
       if (!instance) {

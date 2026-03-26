@@ -6,6 +6,7 @@ import {
   builds,
   buildAnalyses,
   healthSnapshots,
+  ciInstances,
   teams,
 } from "../db/schema";
 import { jobMatchesTeam } from "./teams";
@@ -18,16 +19,19 @@ export async function dashboardRoutes(app: FastifyInstance) {
   app.get<{
     Querystring: { instance_id?: string };
   }>("/api/v1/dashboard/summary", async (request) => {
+    const orgId = request.tigSession!.org.id;
     const instanceId = request.query.instance_id;
-
-    const jobFilter = instanceId
-      ? eq(jobs.ciInstanceId, instanceId)
-      : eq(jobs.isActive, true);
 
     const allJobs = await db
       .select({ color: jobs.color })
       .from(jobs)
-      .where(and(jobFilter, eq(jobs.isActive, true)));
+      .where(
+        and(
+          eq(jobs.organizationId, orgId),
+          eq(jobs.isActive, true),
+          instanceId ? eq(jobs.ciInstanceId, instanceId) : undefined,
+        ),
+      );
 
     const total = allJobs.length;
     const passing = allJobs.filter(
@@ -51,6 +55,7 @@ export async function dashboardRoutes(app: FastifyInstance) {
       days?: string;
     };
   }>("/api/v1/dashboard/failures", async (request) => {
+    const orgId = request.tigSession!.org.id;
     const instanceId = request.query.instance_id;
     const teamId = request.query.team_id;
     const rawLimit = Number(request.query.limit ?? 50);
@@ -63,13 +68,13 @@ export async function dashboardRoutes(app: FastifyInstance) {
       : 3;
     const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 
-    // Load team patterns if filtering by team
+    // Load team patterns if filtering by team (verify team belongs to org)
     let teamPatterns: string[] | null = null;
     if (teamId) {
       const [team] = await db
         .select({ folderPatterns: teams.folderPatterns })
         .from(teams)
-        .where(eq(teams.id, teamId))
+        .where(and(eq(teams.id, teamId), eq(teams.organizationId, orgId)))
         .limit(1);
       if (team) {
         teamPatterns = team.folderPatterns;
@@ -102,6 +107,7 @@ export async function dashboardRoutes(app: FastifyInstance) {
       .leftJoin(buildAnalyses, eq(buildAnalyses.buildId, builds.id))
       .where(
         and(
+          eq(jobs.organizationId, orgId),
           instanceId ? eq(jobs.ciInstanceId, instanceId) : undefined,
           sql`${builds.result} IN ('FAILURE', 'UNSTABLE')`,
           gte(builds.startedAt, since),
@@ -122,12 +128,37 @@ export async function dashboardRoutes(app: FastifyInstance) {
   app.get<{
     Params: { instanceId: string };
   }>("/api/v1/instances/:instanceId/health", async (request, reply) => {
+    const orgId = request.tigSession!.org.id;
     const { instanceId } = request.params;
+
+    // Verify instance belongs to org
+    const [instance] = await db
+      .select({ id: ciInstances.id })
+      .from(ciInstances)
+      .where(
+        and(
+          eq(ciInstances.id, instanceId),
+          eq(ciInstances.organizationId, orgId),
+        ),
+      )
+      .limit(1);
+
+    if (!instance) {
+      return reply.status(404).send({
+        data: null,
+        error: "Instance not found",
+      });
+    }
 
     const [snapshot] = await db
       .select()
       .from(healthSnapshots)
-      .where(eq(healthSnapshots.ciInstanceId, instanceId))
+      .where(
+        and(
+          eq(healthSnapshots.ciInstanceId, instanceId),
+          eq(healthSnapshots.organizationId, orgId),
+        ),
+      )
       .orderBy(desc(healthSnapshots.recordedAt))
       .limit(1);
 
@@ -145,9 +176,29 @@ export async function dashboardRoutes(app: FastifyInstance) {
   app.get<{
     Params: { instanceId: string };
     Querystring: { period?: string };
-  }>("/api/v1/instances/:instanceId/health/history", async (request) => {
+  }>("/api/v1/instances/:instanceId/health/history", async (request, reply) => {
+    const orgId = request.tigSession!.org.id;
     const { instanceId } = request.params;
     const period = request.query.period ?? "24h";
+
+    // Verify instance belongs to org
+    const [instance] = await db
+      .select({ id: ciInstances.id })
+      .from(ciInstances)
+      .where(
+        and(
+          eq(ciInstances.id, instanceId),
+          eq(ciInstances.organizationId, orgId),
+        ),
+      )
+      .limit(1);
+
+    if (!instance) {
+      return reply.status(404).send({
+        data: null,
+        error: "Instance not found",
+      });
+    }
 
     const hours = period === "7d" ? 168 : period === "1h" ? 1 : 24;
     const since = new Date(Date.now() - hours * 60 * 60 * 1000);
@@ -166,6 +217,7 @@ export async function dashboardRoutes(app: FastifyInstance) {
       .where(
         and(
           eq(healthSnapshots.ciInstanceId, instanceId),
+          eq(healthSnapshots.organizationId, orgId),
           sql`${healthSnapshots.recordedAt} >= ${since}`,
         ),
       )
@@ -175,7 +227,9 @@ export async function dashboardRoutes(app: FastifyInstance) {
   });
 
   // AI cost tracking + status
-  app.get("/api/v1/dashboard/ai-cost", async () => {
+  app.get("/api/v1/dashboard/ai-cost", async (request) => {
+    const orgId = request.tigSession!.org.id;
+
     const [result] = await db
       .select({
         totalCost: sum(buildAnalyses.aiCostUsd),
@@ -184,7 +238,8 @@ export async function dashboardRoutes(app: FastifyInstance) {
         analyzedCount: count(buildAnalyses.id),
         aiCount: count(buildAnalyses.aiSummary),
       })
-      .from(buildAnalyses);
+      .from(buildAnalyses)
+      .where(eq(buildAnalyses.organizationId, orgId));
 
     // Check if AI is working: is the MOST RECENT analysis missing AI?
     const [latestAnalysis] = await db
@@ -193,6 +248,7 @@ export async function dashboardRoutes(app: FastifyInstance) {
         analyzedAt: buildAnalyses.analyzedAt,
       })
       .from(buildAnalyses)
+      .where(eq(buildAnalyses.organizationId, orgId))
       .orderBy(desc(buildAnalyses.analyzedAt))
       .limit(1);
 

@@ -35,7 +35,6 @@ export const auth = betterAuth({
     },
   },
   advanced: {
-    cookiePrefix: "tig",
     useSecureCookies: IS_PRODUCTION,
   },
   trustedOrigins: getTrustedOrigins(),

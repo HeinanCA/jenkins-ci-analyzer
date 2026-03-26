@@ -113,10 +113,16 @@ const app = Fastify({
 
 await app.register(cors, {
   origin: (origin, cb) => {
+    // Allow requests with no Origin (server-to-server, nginx proxy)
+    // Allow requests from configured origins
     if (!origin || ALLOWED_ORIGINS.includes(origin)) {
       cb(null, true);
     } else {
-      cb(new Error("CORS not allowed"), false);
+      // Log rejected origins for debugging, but still reject
+      console.warn(
+        `CORS rejected origin: ${origin} (allowed: ${ALLOWED_ORIGINS.join(", ")})`,
+      );
+      cb(null, false);
     }
   },
   credentials: true,

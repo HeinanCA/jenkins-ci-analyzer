@@ -10,6 +10,7 @@ import {
   Select,
   Card,
   Group,
+  Box,
   SegmentedControl,
   Tooltip,
   Divider,
@@ -152,6 +153,17 @@ export function FailuresPage() {
 
             return (
               <Accordion.Item key={g.jobFullPath} value={g.jobFullPath}>
+                <Box
+                  style={{
+                    height: 3,
+                    borderRadius: "3px 3px 0 0",
+                    background: statusGradient(
+                      f.classification === "infrastructure"
+                        ? colors.failure
+                        : colors.accent,
+                    ),
+                  }}
+                />
                 <Accordion.Control>
                   <Group
                     justify="space-between"

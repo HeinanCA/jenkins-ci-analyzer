@@ -10,6 +10,7 @@ import {
   Badge,
 } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { useAuthStore } from "../../store/auth-store";
 import { tigAiCost, tigAiHealth, tigDashboard } from "../../api/tig-client";
@@ -134,6 +135,7 @@ export function AppShellLayout() {
   const location = useLocation();
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
+  const [hoveredPath, setHoveredPath] = useState<string | null>(null);
 
   return (
     <MantineAppShell
@@ -200,20 +202,27 @@ export function AppShellLayout() {
         <Stack gap={4}>
           {NAV_ITEMS.map((item) => {
             const isActive = location.pathname === item.path;
+            const isHovered = hoveredPath === item.path && !isActive;
             return (
               <Box
                 key={item.path}
                 onClick={() => navigate(item.path)}
+                onMouseEnter={() => setHoveredPath(item.path)}
+                onMouseLeave={() => setHoveredPath(null)}
                 style={{
                   cursor: "pointer",
                   padding: "10px 14px",
                   borderRadius: 8,
                   backgroundColor: isActive
                     ? colors.accentMuted
-                    : "transparent",
+                    : isHovered
+                      ? "rgba(245, 103, 64, 0.06)"
+                      : "transparent",
                   border: isActive
                     ? `1px solid ${colors.borderHover}`
-                    : "1px solid transparent",
+                    : isHovered
+                      ? `1px solid ${colors.border}`
+                      : "1px solid transparent",
                   transition: "all 0.15s ease",
                 }}
               >

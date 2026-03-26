@@ -1,5 +1,6 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import {
   Stack,
   Title,
@@ -10,12 +11,15 @@ import {
   Badge,
   Loader,
   Box,
+  Tooltip,
 } from "@mantine/core";
 import { tigDashboard, tigHealth } from "../../api/tig-client";
 import { useAuthStore } from "../../store/auth-store";
 import {
   colors,
   cardStyle,
+  cardHoverStyle,
+  metricStyle,
   HEALTH_COLORS,
   statusGradient,
 } from "../../theme/mantine-theme";
@@ -27,17 +31,28 @@ function StatCard({
   label,
   value,
   color,
+  onClick,
 }: {
   label: string;
   value: number;
   color?: string;
+  onClick?: () => void;
 }) {
   return (
-    <Card radius="md" style={cardStyle} p="md">
+    <Card
+      radius="md"
+      style={{ ...cardStyle, ...(onClick ? { cursor: "pointer" } : {}) }}
+      p="md"
+      onClick={onClick}
+    >
       <Text size="xs" c={colors.textTertiary} fw={500}>
         {label}
       </Text>
-      <Text size="xl" fw={700} c={color ?? colors.text} mt={4}>
+      <Text
+        c={color ?? colors.text}
+        mt={4}
+        style={{ ...metricStyle, fontSize: 28 }}
+      >
         {value}
       </Text>
     </Card>
@@ -46,6 +61,8 @@ function StatCard({
 
 export function DashboardPage() {
   const instanceId = useAuthStore((s) => s.instanceId);
+  const navigate = useNavigate();
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
 
   const summary = useQuery({
     queryKey: ["dashboard-summary", instanceId],
@@ -98,26 +115,26 @@ export function DashboardPage() {
       </Title>
 
       {h && (
-        <Card radius="md" style={cardStyle} p="sm">
-          <Group gap="sm">
-            <Box
-              style={{
-                width: 10,
-                height: 10,
-                borderRadius: "50%",
+        <Tooltip
+          label={`Score ${h.score}/100 · ${h.agentsOnline}/${h.agentsTotal} agents · ${h.queueDepth} queued`}
+          position="bottom-start"
+          withArrow
+        >
+          <Badge
+            size="lg"
+            variant="filled"
+            radius="xl"
+            styles={{
+              root: {
                 backgroundColor: healthColor,
-                boxShadow: `0 0 10px ${healthColor}60`,
-              }}
-            />
-            <Text size="sm" c={colors.text} fw={500}>
-              Jenkins is {h.level}
-            </Text>
-            <Text size="sm" c={colors.textTertiary}>
-              {h.score}/100 · {h.agentsOnline}/{h.agentsTotal} agents ·{" "}
-              {h.queueDepth} queued
-            </Text>
-          </Group>
-        </Card>
+                cursor: "default",
+                textTransform: "capitalize",
+              },
+            }}
+          >
+            {h.level}
+          </Badge>
+        </Tooltip>
       )}
 
       {stats && (
@@ -132,6 +149,7 @@ export function DashboardPage() {
             label="Failing"
             value={stats.failing}
             color={colors.failure}
+            onClick={() => navigate("/failures")}
           />
           <StatCard
             label="Building"
@@ -151,16 +169,21 @@ export function DashboardPage() {
             const isInfra = g.latest.classification === "infrastructure";
             const barColor = isInfra ? colors.failure : colors.warning;
 
+            const isHovered = hoveredId === g.jobFullPath;
             return (
               <Card
                 key={g.jobFullPath}
                 radius="md"
                 style={{
-                  ...cardStyle,
+                  ...(isHovered ? cardHoverStyle : cardStyle),
                   overflow: "hidden",
                   position: "relative",
+                  cursor: "pointer",
                 }}
                 p={0}
+                onClick={() => navigate("/failures")}
+                onMouseEnter={() => setHoveredId(g.jobFullPath)}
+                onMouseLeave={() => setHoveredId(null)}
               >
                 {/* Gradient status bar */}
                 <Box

@@ -272,6 +272,20 @@ export const tigHealth = {
         recordedAt: string;
       }[]
     >(`/v1/instances/${instanceId}/health/history?period=${period}`),
+  executors: (instanceId: string) =>
+    request<
+      {
+        agent: string;
+        idle: boolean;
+        offline: boolean;
+        jobName: string | null;
+        jobUrl: string | null;
+        buildNumber: number | null;
+        startedAt: string | null;
+        durationMs: number | null;
+        stuck: boolean;
+      }[]
+    >(`/v1/instances/${instanceId}/executors`),
 };
 
 export { TigApiError };

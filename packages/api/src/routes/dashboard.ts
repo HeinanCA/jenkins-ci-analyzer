@@ -11,6 +11,41 @@ import {
 } from "../db/schema";
 import { jobMatchesTeam } from "./teams";
 import { requireAuth } from "../middleware/auth";
+import { jenkinsGet } from "../services/jenkins-client";
+import {
+  decryptCredentials,
+  type EncryptedCredentials,
+} from "../services/credential-vault";
+
+interface JenkinsComputerResponse {
+  readonly computer: readonly {
+    readonly displayName: string;
+    readonly idle: boolean;
+    readonly offline: boolean;
+    readonly numExecutors: number;
+    readonly executors: readonly {
+      readonly idle: boolean;
+      readonly currentExecutable: {
+        readonly url: string;
+        readonly fullDisplayName: string;
+        readonly timestamp: number;
+        readonly number: number;
+      } | null;
+    }[];
+  }[];
+}
+
+interface ExecutorInfo {
+  readonly agent: string;
+  readonly idle: boolean;
+  readonly offline: boolean;
+  readonly jobName: string | null;
+  readonly jobUrl: string | null;
+  readonly buildNumber: number | null;
+  readonly startedAt: string | null;
+  readonly durationMs: number | null;
+  readonly stuck: boolean;
+}
 
 export async function dashboardRoutes(app: FastifyInstance) {
   app.addHook("preHandler", requireAuth);
@@ -224,6 +259,80 @@ export async function dashboardRoutes(app: FastifyInstance) {
       .orderBy(healthSnapshots.recordedAt);
 
     return { data: snapshots, error: null };
+  });
+
+  // Live executor data from Jenkins
+  app.get<{
+    Params: { instanceId: string };
+  }>("/api/v1/instances/:instanceId/executors", async (request, reply) => {
+    const orgId = request.tigSession!.org.id;
+    const { instanceId } = request.params;
+
+    const [instance] = await db
+      .select({
+        id: ciInstances.id,
+        baseUrl: ciInstances.baseUrl,
+        credentials: ciInstances.credentials,
+      })
+      .from(ciInstances)
+      .where(
+        and(
+          eq(ciInstances.id, instanceId),
+          eq(ciInstances.organizationId, orgId),
+        ),
+      )
+      .limit(1);
+
+    if (!instance) {
+      return reply.status(404).send({
+        data: null,
+        error: "Instance not found",
+      });
+    }
+
+    const credentials = decryptCredentials(
+      instance.credentials as EncryptedCredentials,
+    );
+
+    const tree =
+      "computer[displayName,idle,offline,numExecutors,executors[idle,currentExecutable[url,fullDisplayName,timestamp,number]]]";
+    const url = `${instance.baseUrl.replace(/\/$/, "")}/computer/api/json?tree=${tree}`;
+
+    let jenkinsData: JenkinsComputerResponse;
+    try {
+      jenkinsData = await jenkinsGet<JenkinsComputerResponse>(url, credentials);
+    } catch {
+      return reply.status(502).send({
+        data: null,
+        error: "Failed to fetch executor data",
+      });
+    }
+
+    const now = Date.now();
+    const STUCK_THRESHOLD_MS = 4 * 60 * 60 * 1000;
+
+    const executors: ExecutorInfo[] = jenkinsData.computer.flatMap((computer) =>
+      computer.executors.map((executor): ExecutorInfo => {
+        const exec = executor.currentExecutable;
+        const timestamp = exec?.timestamp ?? null;
+        const durationMs = timestamp !== null ? now - timestamp : null;
+
+        return {
+          agent: computer.displayName,
+          idle: executor.idle,
+          offline: computer.offline,
+          jobName: exec?.fullDisplayName ?? null,
+          jobUrl: exec?.url ?? null,
+          buildNumber: exec?.number ?? null,
+          startedAt:
+            timestamp !== null ? new Date(timestamp).toISOString() : null,
+          durationMs,
+          stuck: durationMs !== null && durationMs > STUCK_THRESHOLD_MS,
+        };
+      }),
+    );
+
+    return { data: executors, error: null };
   });
 
   // AI cost tracking + status

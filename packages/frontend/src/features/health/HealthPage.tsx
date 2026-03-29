@@ -9,6 +9,7 @@ import {
   Group,
   Box,
   Tooltip,
+  Badge,
 } from "@mantine/core";
 import { tigHealth } from "../../api/tig-client";
 import { useAuthStore } from "../../store/auth-store";
@@ -46,6 +47,121 @@ function HealthSparkline({
         );
       })}
     </Group>
+  );
+}
+
+function formatDuration(ms: number | null): string {
+  if (ms === null || ms <= 0) return "< 1m";
+  const hours = Math.floor(ms / 3600000);
+  const minutes = Math.floor((ms % 3600000) / 60000);
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  return `${minutes}m`;
+}
+
+function ExecutorTable({ instanceId }: { instanceId: string }) {
+  const { data, isLoading, isError, error, refetch } = useQuery({
+    queryKey: ["health-executors", instanceId],
+    queryFn: () => tigHealth.executors(instanceId),
+    enabled: !!instanceId,
+    refetchInterval: 15_000,
+  });
+
+  return (
+    <Card radius="md" style={cardStyle} p="md">
+      <Text size="sm" fw={600} c={colors.text} mb="sm">
+        Executors
+      </Text>
+
+      {isLoading && (
+        <Stack align="center" py="sm">
+          <Loader color="orange" size="xs" />
+        </Stack>
+      )}
+
+      {isError && <QueryError message={error?.message} onRetry={refetch} />}
+
+      {data && data.length === 0 && (
+        <Text size="xs" c={colors.textTertiary}>
+          No executors reported.
+        </Text>
+      )}
+
+      {data && data.length > 0 && (
+        <Stack gap={0}>
+          {data.map((executor, i) => (
+            <Group
+              key={`${executor.agent}-${i}`}
+              justify="space-between"
+              align="center"
+              py="xs"
+              style={
+                i < data.length - 1
+                  ? { borderBottom: `1px solid ${colors.border}` }
+                  : undefined
+              }
+            >
+              {/* Agent */}
+              <Group gap="xs" style={{ flex: 1, minWidth: 0 }}>
+                <Box
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: "50%",
+                    backgroundColor: executor.offline
+                      ? colors.failure
+                      : colors.success,
+                    flexShrink: 0,
+                  }}
+                />
+                <Text size="sm" c={colors.text} truncate>
+                  {executor.agent}
+                </Text>
+              </Group>
+
+              {/* Status */}
+              <Box style={{ flex: 2, minWidth: 0 }}>
+                {executor.idle ? (
+                  <Text size="sm" c={colors.textTertiary}>
+                    Idle
+                  </Text>
+                ) : (
+                  <Text size="sm" c={colors.text} truncate>
+                    {executor.jobName}
+                    {executor.buildNumber != null &&
+                      ` #${executor.buildNumber}`}
+                  </Text>
+                )}
+              </Box>
+
+              {/* Duration + Stuck */}
+              <Group gap="xs" justify="flex-end" style={{ flexShrink: 0 }}>
+                {!executor.idle && (
+                  <Text
+                    size="sm"
+                    c={executor.stuck ? colors.failure : colors.textSecondary}
+                    fw={executor.stuck ? 600 : 400}
+                  >
+                    {formatDuration(executor.durationMs)}
+                  </Text>
+                )}
+                {executor.stuck && (
+                  <Badge
+                    size="xs"
+                    color="red"
+                    variant="filled"
+                    style={{
+                      animation: "pulsci-pulse 2s ease-in-out infinite",
+                    }}
+                  >
+                    STUCK
+                  </Badge>
+                )}
+              </Group>
+            </Group>
+          ))}
+        </Stack>
+      )}
+    </Card>
   );
 }
 
@@ -203,6 +319,8 @@ export function HealthPage() {
           </Text>
         </Card>
       </SimpleGrid>
+
+      <ExecutorTable instanceId={instanceId} />
     </Stack>
   );
 }

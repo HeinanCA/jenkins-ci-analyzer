@@ -255,7 +255,18 @@ export function LoginPage() {
                   Sign In
                 </Button>
                 <Text size="xs" c={colors.textMuted} ta="center">
-                  Need access? Contact your PulsCI admin.
+                  New here?{" "}
+                  <Anchor
+                    size="xs"
+                    c={colors.accent}
+                    fw={600}
+                    onClick={() => {
+                      setError(null);
+                      setMode("signup");
+                    }}
+                  >
+                    Sign up
+                  </Anchor>
                 </Text>
               </>
             )}

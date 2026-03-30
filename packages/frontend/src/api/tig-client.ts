@@ -286,6 +286,18 @@ export const tigHealth = {
         stuck: boolean;
       }[]
     >(`/v1/instances/${instanceId}/executors`),
+  queue: (instanceId: string) =>
+    request<
+      {
+        id: number;
+        jobName: string;
+        jobUrl: string;
+        reason: string;
+        waitingMs: number;
+        stuck: boolean;
+        blocked: boolean;
+      }[]
+    >(`/v1/instances/${instanceId}/queue`),
 };
 
 export { TigApiError };

@@ -38,12 +38,18 @@ function StatCard({
   color?: string;
   onClick?: () => void;
 }) {
+  const [hovered, setHovered] = useState(false);
   return (
     <Card
       radius="md"
-      style={{ ...cardStyle, ...(onClick ? { cursor: "pointer" } : {}) }}
+      style={{
+        ...(hovered ? cardHoverStyle : cardStyle),
+        ...(onClick ? { cursor: "pointer" } : {}),
+      }}
       p="md"
       onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
     >
       <Text size="xs" c={colors.textTertiary} fw={500}>
         {label}

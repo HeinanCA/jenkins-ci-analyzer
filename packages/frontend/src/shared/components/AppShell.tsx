@@ -31,7 +31,7 @@ if (
 ) {
   const style = document.createElement("style");
   style.id = "pulsci-keyframes";
-  style.textContent = `@keyframes pulsci-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(255, 107, 107, 0.4); } 50% { box-shadow: 0 0 0 6px rgba(255, 107, 107, 0); } }`;
+  style.textContent = `@keyframes pulsci-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(255, 107, 107, 0.4); } 50% { box-shadow: 0 0 0 6px rgba(255, 107, 107, 0); } } @keyframes fadeIn { from { opacity: 0.7; } to { opacity: 1; } }`;
   document.head.appendChild(style);
 }
 
@@ -252,7 +252,9 @@ export function AppShellLayout() {
       </MantineAppShell.Navbar>
 
       <MantineAppShell.Main>
-        <Outlet />
+        <Box style={{ animation: "fadeIn 0.2s ease" }}>
+          <Outlet />
+        </Box>
       </MantineAppShell.Main>
     </MantineAppShell>
   );

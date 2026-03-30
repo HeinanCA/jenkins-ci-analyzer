@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Stack,
@@ -29,6 +29,8 @@ export function FailuresPage() {
   const instanceId = useAuthStore((s) => s.instanceId);
   const [filter, setFilter] = useState<Filter>("all");
   const [teamId, setTeamId] = useState<string | null>(null);
+  const [hoveredItem, setHoveredItem] = useState<string | null>(null);
+  const clearHover = useCallback(() => setHoveredItem(null), []);
 
   const { data: teamsData } = useQuery({
     queryKey: ["teams"],
@@ -152,7 +154,19 @@ export function FailuresPage() {
             const hasAi = !!aiSummary;
 
             return (
-              <Accordion.Item key={g.jobFullPath} value={g.jobFullPath}>
+              <Accordion.Item
+                key={g.jobFullPath}
+                value={g.jobFullPath}
+                onMouseEnter={() => setHoveredItem(g.jobFullPath)}
+                onMouseLeave={clearHover}
+                style={{
+                  transition: "background-color 0.15s ease",
+                  backgroundColor:
+                    hoveredItem === g.jobFullPath
+                      ? colors.surfaceHover
+                      : undefined,
+                }}
+              >
                 <Box
                   style={{
                     height: 3,

@@ -60,13 +60,16 @@ export const cardStyle: Record<string, string> = {
   borderImage:
     "linear-gradient(90deg, rgba(245, 103, 64, 0.35) 0%, rgba(255, 154, 118, 0.12) 50%, transparent 100%) 1",
   boxShadow: "0 2px 8px rgba(0, 0, 0, 0.4)",
-  transition: "border-color 0.2s ease, box-shadow 0.2s ease",
+  transition:
+    "border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease",
+  transform: "translateY(0)",
 };
 
 export const cardHoverStyle: Record<string, string> = {
   ...cardStyle,
   borderColor: colors.borderHover,
   boxShadow: "0 4px 16px rgba(245, 103, 64, 0.08)",
+  transform: "translateY(-1px)",
 };
 
 export const codeStyle = {

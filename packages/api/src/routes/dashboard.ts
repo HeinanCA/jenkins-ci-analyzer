@@ -17,6 +17,28 @@ import {
   type EncryptedCredentials,
 } from "../services/credential-vault";
 
+interface JenkinsQueueDetailResponse {
+  readonly items: readonly {
+    readonly id: number;
+    readonly task: { readonly name: string; readonly url: string };
+    readonly why: string | null;
+    readonly inQueueSince: number;
+    readonly stuck: boolean;
+    readonly blocked: boolean;
+    readonly buildable: boolean;
+  }[];
+}
+
+interface QueueItem {
+  readonly id: number;
+  readonly jobName: string;
+  readonly jobUrl: string;
+  readonly reason: string;
+  readonly waitingMs: number;
+  readonly stuck: boolean;
+  readonly blocked: boolean;
+}
+
 interface JenkinsComputerResponse {
   readonly computer: readonly {
     readonly displayName: string;
@@ -333,6 +355,70 @@ export async function dashboardRoutes(app: FastifyInstance) {
     );
 
     return { data: executors, error: null };
+  });
+
+  // Live queue detail from Jenkins
+  app.get<{
+    Params: { instanceId: string };
+  }>("/api/v1/instances/:instanceId/queue", async (request, reply) => {
+    const orgId = request.tigSession!.org.id;
+    const { instanceId } = request.params;
+
+    const [instance] = await db
+      .select({
+        id: ciInstances.id,
+        baseUrl: ciInstances.baseUrl,
+        credentials: ciInstances.credentials,
+      })
+      .from(ciInstances)
+      .where(
+        and(
+          eq(ciInstances.id, instanceId),
+          eq(ciInstances.organizationId, orgId),
+        ),
+      )
+      .limit(1);
+
+    if (!instance) {
+      return reply.status(404).send({
+        data: null,
+        error: "Instance not found",
+      });
+    }
+
+    const credentials = decryptCredentials(
+      instance.credentials as EncryptedCredentials,
+    );
+
+    const tree =
+      "items[id,task[name,url],why,inQueueSince,stuck,blocked,buildable]";
+    const url = `${instance.baseUrl.replace(/\/$/, "")}/queue/api/json?tree=${tree}`;
+
+    let jenkinsData: JenkinsQueueDetailResponse;
+    try {
+      jenkinsData = await jenkinsGet<JenkinsQueueDetailResponse>(
+        url,
+        credentials,
+      );
+    } catch {
+      return reply.status(502).send({
+        data: null,
+        error: "Failed to fetch queue data from Jenkins",
+      });
+    }
+
+    const now = Date.now();
+    const queueItems: QueueItem[] = jenkinsData.items.map((item) => ({
+      id: item.id,
+      jobName: item.task.name,
+      jobUrl: item.task.url,
+      reason: item.why ?? "Unknown",
+      waitingMs: now - item.inQueueSince,
+      stuck: item.stuck,
+      blocked: item.blocked,
+    }));
+
+    return { data: queueItems, error: null };
   });
 
   // AI cost tracking + status

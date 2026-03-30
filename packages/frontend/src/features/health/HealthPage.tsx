@@ -165,6 +165,102 @@ function ExecutorTable({ instanceId }: { instanceId: string }) {
   );
 }
 
+function formatWaitTime(ms: number): string {
+  if (ms <= 0) return "< 1m";
+  const hours = Math.floor(ms / 3600000);
+  const minutes = Math.floor((ms % 3600000) / 60000);
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  if (minutes === 0) return "< 1m";
+  return `${minutes}m`;
+}
+
+function QueueDetail({ instanceId }: { instanceId: string }) {
+  const { data, isLoading, isError, error, refetch } = useQuery({
+    queryKey: ["health-queue", instanceId],
+    queryFn: () => tigHealth.queue(instanceId),
+    enabled: !!instanceId,
+    refetchInterval: 15_000,
+  });
+
+  return (
+    <Card radius="md" style={cardStyle} p="md">
+      <Text size="sm" fw={600} c={colors.text} mb="sm">
+        Build Queue
+      </Text>
+
+      {isLoading && (
+        <Stack align="center" py="sm">
+          <Loader color="orange" size="xs" />
+        </Stack>
+      )}
+
+      {isError && <QueryError message={error?.message} onRetry={refetch} />}
+
+      {data && data.length === 0 && (
+        <Text size="xs" c={colors.textTertiary}>
+          Queue is empty
+        </Text>
+      )}
+
+      {data && data.length > 0 && (
+        <Stack gap={0}>
+          {data.map((item, i) => (
+            <Group
+              key={item.id}
+              justify="space-between"
+              align="center"
+              py="xs"
+              style={
+                i < data.length - 1
+                  ? { borderBottom: `1px solid ${colors.border}` }
+                  : undefined
+              }
+            >
+              {/* Job name */}
+              <Box style={{ flex: 1, minWidth: 0 }}>
+                <Text size="sm" c={colors.text} truncate>
+                  {item.jobName}
+                </Text>
+              </Box>
+
+              {/* Reason */}
+              <Box style={{ flex: 2, minWidth: 0 }}>
+                <Text size="xs" c={colors.textSecondary} truncate>
+                  {item.reason}
+                </Text>
+              </Box>
+
+              {/* Wait time + badges */}
+              <Group gap="xs" justify="flex-end" style={{ flexShrink: 0 }}>
+                <Text size="sm" c={colors.textSecondary}>
+                  {formatWaitTime(item.waitingMs)}
+                </Text>
+                {item.stuck && (
+                  <Badge
+                    size="xs"
+                    color="red"
+                    variant="filled"
+                    style={{
+                      animation: "pulsci-pulse 2s ease-in-out infinite",
+                    }}
+                  >
+                    STUCK
+                  </Badge>
+                )}
+                {item.blocked && (
+                  <Badge size="xs" color="red" variant="light">
+                    BLOCKED
+                  </Badge>
+                )}
+              </Group>
+            </Group>
+          ))}
+        </Stack>
+      )}
+    </Card>
+  );
+}
+
 export function HealthPage() {
   const instanceId = useAuthStore((s) => s.instanceId);
 
@@ -321,6 +417,7 @@ export function HealthPage() {
       </SimpleGrid>
 
       <ExecutorTable instanceId={instanceId} />
+      <QueueDetail instanceId={instanceId} />
     </Stack>
   );
 }

@@ -10,8 +10,8 @@ import {
   Badge,
 } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
+import { useHover } from "../hooks/use-hover";
 import { useAuthStore } from "../../store/auth-store";
 import { tigAiCost, tigAiHealth, tigDashboard } from "../../api/tig-client";
 import { colors } from "../../theme/mantine-theme";
@@ -24,16 +24,7 @@ const NAV_ITEMS = [
   { label: "Teams", path: "/teams", icon: "⊞" },
 ] as const;
 
-// Inject pulse keyframes into document once
-if (
-  typeof document !== "undefined" &&
-  !document.getElementById("pulsci-keyframes")
-) {
-  const style = document.createElement("style");
-  style.id = "pulsci-keyframes";
-  style.textContent = `@keyframes pulsci-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(255, 107, 107, 0.4); } 50% { box-shadow: 0 0 0 6px rgba(255, 107, 107, 0); } } @keyframes fadeIn { from { opacity: 0.7; } to { opacity: 1; } }`;
-  document.head.appendChild(style);
-}
+import "../styles/animations.css";
 
 function FailureCount() {
   const instanceId = useAuthStore((s) => s.instanceId);
@@ -135,7 +126,7 @@ export function AppShellLayout() {
   const location = useLocation();
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
-  const [hoveredPath, setHoveredPath] = useState<string | null>(null);
+  const { hovered: hoveredPath, bind: hoverBind } = useHover<string>();
 
   return (
     <MantineAppShell
@@ -207,8 +198,7 @@ export function AppShellLayout() {
               <Box
                 key={item.path}
                 onClick={() => navigate(item.path)}
-                onMouseEnter={() => setHoveredPath(item.path)}
-                onMouseLeave={() => setHoveredPath(null)}
+                {...hoverBind(item.path)}
                 style={{
                   cursor: "pointer",
                   padding: "10px 14px",

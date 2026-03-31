@@ -17,6 +17,31 @@ import {
   type EncryptedCredentials,
 } from "../services/credential-vault";
 
+interface JenkinsJobsWithBuildsResponse {
+  readonly jobs: readonly {
+    readonly name: string;
+    readonly url: string;
+    readonly builds: readonly {
+      readonly number: number;
+      readonly result: string | null;
+      readonly timestamp: number;
+      readonly building: boolean;
+      readonly duration: number;
+      readonly estimatedDuration: number;
+    }[];
+  }[];
+}
+
+interface RunningBuild {
+  readonly jobName: string;
+  readonly jobUrl: string;
+  readonly buildNumber: number;
+  readonly startedAt: string;
+  readonly durationMs: number;
+  readonly estimatedMs: number;
+  readonly progress: number;
+}
+
 interface JenkinsQueueDetailResponse {
   readonly items: readonly {
     readonly id: number;
@@ -108,6 +133,7 @@ export async function dashboardRoutes(app: FastifyInstance) {
     Querystring: {
       instance_id?: string;
       team_id?: string;
+      author?: string;
       limit?: string;
       days?: string;
     };
@@ -115,6 +141,7 @@ export async function dashboardRoutes(app: FastifyInstance) {
     const orgId = request.tigSession!.org.id;
     const instanceId = request.query.instance_id;
     const teamId = request.query.team_id;
+    const author = request.query.author;
     const rawLimit = Number(request.query.limit ?? 50);
     const limit = Number.isFinite(rawLimit)
       ? Math.max(1, Math.min(rawLimit, 100))
@@ -158,6 +185,7 @@ export async function dashboardRoutes(app: FastifyInstance) {
         aiSuggestedFixes: buildAnalyses.aiSuggestedFixes,
         logNoisePercent: buildAnalyses.logNoisePercent,
         logTopNoise: buildAnalyses.logTopNoise,
+        triggeredBy: builds.triggeredBy,
       })
       .from(builds)
       .innerJoin(jobs, eq(jobs.id, builds.jobId))
@@ -166,6 +194,7 @@ export async function dashboardRoutes(app: FastifyInstance) {
         and(
           eq(jobs.organizationId, orgId),
           instanceId ? eq(jobs.ciInstanceId, instanceId) : undefined,
+          author ? eq(builds.triggeredBy, author) : undefined,
           sql`${builds.result} IN ('FAILURE', 'UNSTABLE')`,
           gte(builds.startedAt, since),
         ),
@@ -179,6 +208,30 @@ export async function dashboardRoutes(app: FastifyInstance) {
       : failures;
 
     return { data: filtered, error: null };
+  });
+
+  // Distinct authors (triggered_by) for the org
+  app.get<{
+    Querystring: { instance_id?: string };
+  }>("/api/v1/dashboard/authors", async (request) => {
+    const orgId = request.tigSession!.org.id;
+    const instanceId = request.query.instance_id;
+
+    const rows = await db
+      .selectDistinct({ triggeredBy: builds.triggeredBy })
+      .from(builds)
+      .innerJoin(jobs, eq(jobs.id, builds.jobId))
+      .where(
+        and(
+          eq(builds.organizationId, orgId),
+          sql`${builds.triggeredBy} IS NOT NULL`,
+          instanceId ? eq(jobs.ciInstanceId, instanceId) : undefined,
+        ),
+      )
+      .orderBy(builds.triggeredBy);
+
+    const authors = rows.map((r) => r.triggeredBy!);
+    return { data: authors, error: null };
   });
 
   // Health — current snapshot for an instance
@@ -419,6 +472,113 @@ export async function dashboardRoutes(app: FastifyInstance) {
     }));
 
     return { data: queueItems, error: null };
+  });
+
+  // Running builds — live from Jenkins
+  app.get<{
+    Params: { instanceId: string };
+  }>("/api/v1/instances/:instanceId/running-builds", async (request, reply) => {
+    const orgId = request.tigSession!.org.id;
+    const { instanceId } = request.params;
+
+    const [instance] = await db
+      .select({
+        id: ciInstances.id,
+        baseUrl: ciInstances.baseUrl,
+        credentials: ciInstances.credentials,
+      })
+      .from(ciInstances)
+      .where(
+        and(
+          eq(ciInstances.id, instanceId),
+          eq(ciInstances.organizationId, orgId),
+        ),
+      )
+      .limit(1);
+
+    if (!instance) {
+      return reply.status(404).send({
+        data: null,
+        error: "Instance not found",
+      });
+    }
+
+    const credentials = decryptCredentials(
+      instance.credentials as EncryptedCredentials,
+    );
+
+    const tree =
+      "jobs[name,url,builds[number,result,timestamp,building,duration,estimatedDuration]{0,5}]";
+    const url = `${instance.baseUrl.replace(/\/$/, "")}/api/json?tree=${tree}`;
+
+    let jenkinsData: JenkinsJobsWithBuildsResponse;
+    try {
+      jenkinsData = await jenkinsGet<JenkinsJobsWithBuildsResponse>(
+        url,
+        credentials,
+      );
+    } catch {
+      return reply.status(502).send({
+        data: null,
+        error: "Failed to fetch build data from Jenkins",
+      });
+    }
+
+    const now = Date.now();
+    const runningBuilds: RunningBuild[] = (jenkinsData.jobs ?? []).flatMap(
+      (job) =>
+        (job.builds ?? [])
+          .filter((b) => b.building === true)
+          .map((b): RunningBuild => {
+            const durationMs = now - b.timestamp;
+            const estimatedMs =
+              b.estimatedDuration > 0 ? b.estimatedDuration : 1;
+            const progress = Math.min(
+              100,
+              Math.round((durationMs / estimatedMs) * 100),
+            );
+            return {
+              jobName: job.name,
+              jobUrl: job.url,
+              buildNumber: b.number,
+              startedAt: new Date(b.timestamp).toISOString(),
+              durationMs,
+              estimatedMs,
+              progress,
+            };
+          }),
+    );
+
+    return { data: runningBuilds, error: null };
+  });
+
+  // Recent completed builds from DB
+  app.get("/api/v1/dashboard/recent-builds", async (request) => {
+    const orgId = request.tigSession!.org.id;
+
+    const recentBuilds = await db
+      .select({
+        id: builds.id,
+        jobName: jobs.name,
+        jobFullPath: jobs.fullPath,
+        buildNumber: builds.buildNumber,
+        result: builds.result,
+        startedAt: builds.startedAt,
+        durationMs: builds.durationMs,
+        triggeredBy: builds.triggeredBy,
+      })
+      .from(builds)
+      .innerJoin(jobs, eq(jobs.id, builds.jobId))
+      .where(
+        and(
+          eq(builds.organizationId, orgId),
+          sql`${builds.result} IS NOT NULL`,
+        ),
+      )
+      .orderBy(desc(builds.startedAt))
+      .limit(20);
+
+    return { data: recentBuilds, error: null };
   });
 
   // AI cost tracking + status

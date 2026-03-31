@@ -189,10 +189,41 @@ export const tigDashboard = {
       building: number;
     }>(`/v1/dashboard/summary${qs}`);
   },
-  failures: (instanceId?: string, limit = 50, teamId?: string) => {
+  runningBuilds: (instanceId: string) =>
+    request<
+      {
+        jobName: string;
+        jobUrl: string;
+        buildNumber: number;
+        startedAt: string;
+        durationMs: number;
+        estimatedMs: number;
+        progress: number;
+      }[]
+    >(`/v1/instances/${instanceId}/running-builds`),
+  recentBuilds: () =>
+    request<
+      {
+        id: string;
+        jobName: string;
+        jobFullPath: string;
+        buildNumber: number;
+        result: string;
+        startedAt: string;
+        durationMs: number;
+        triggeredBy: string | null;
+      }[]
+    >("/v1/dashboard/recent-builds"),
+  failures: (
+    instanceId?: string,
+    limit = 50,
+    teamId?: string,
+    author?: string,
+  ) => {
     const params = new URLSearchParams();
     if (instanceId) params.set("instance_id", instanceId);
     if (teamId) params.set("team_id", teamId);
+    if (author) params.set("author", author);
     params.set("limit", String(limit));
     return request<
       {
@@ -206,8 +237,14 @@ export const tigDashboard = {
         classification: string | null;
         confidence: number | null;
         matches: unknown;
+        triggeredBy: string | null;
       }[]
     >(`/v1/dashboard/failures?${params}`);
+  },
+  authors: (instanceId?: string) => {
+    const params = new URLSearchParams();
+    if (instanceId) params.set("instance_id", instanceId);
+    return request<string[]>(`/v1/dashboard/authors?${params}`);
   },
 };
 

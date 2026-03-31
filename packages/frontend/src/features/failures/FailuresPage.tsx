@@ -29,6 +29,7 @@ export function FailuresPage() {
   const instanceId = useAuthStore((s) => s.instanceId);
   const [filter, setFilter] = useState<Filter>("all");
   const [teamId, setTeamId] = useState<string | null>(null);
+  const [authorFilter, setAuthorFilter] = useState<string | null>(null);
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
   const clearHover = useCallback(() => setHoveredItem(null), []);
 
@@ -37,10 +38,20 @@ export function FailuresPage() {
     queryFn: () => tigTeams.list(),
   });
 
+  const { data: authorsData } = useQuery({
+    queryKey: ["authors", instanceId],
+    queryFn: () => tigDashboard.authors(instanceId ?? undefined),
+  });
+
   const failuresQuery = useQuery({
-    queryKey: ["all-failures", instanceId, teamId],
+    queryKey: ["all-failures", instanceId, teamId, authorFilter],
     queryFn: () =>
-      tigDashboard.failures(instanceId ?? undefined, 50, teamId ?? undefined),
+      tigDashboard.failures(
+        instanceId ?? undefined,
+        50,
+        teamId ?? undefined,
+        authorFilter ?? undefined,
+      ),
     refetchInterval: 30_000,
   });
 
@@ -102,6 +113,23 @@ export function FailuresPage() {
               value={teamId}
               onChange={setTeamId}
               data={teamsData.map((t) => ({ value: t.id, label: t.name }))}
+              styles={{
+                input: {
+                  backgroundColor: colors.surface,
+                  border: "none",
+                  minWidth: 130,
+                },
+              }}
+            />
+          )}
+          {authorsData && authorsData.length > 0 && (
+            <Select
+              size="xs"
+              placeholder="All authors"
+              clearable
+              value={authorFilter}
+              onChange={setAuthorFilter}
+              data={authorsData.map((a) => ({ value: a, label: a }))}
               styles={{
                 input: {
                   backgroundColor: colors.surface,
@@ -195,6 +223,11 @@ export function FailuresPage() {
                           </Badge>
                         )}
                       </Group>
+                      {f.triggeredBy && (
+                        <Text size="xs" c={colors.textTertiary}>
+                          Triggered by {String(f.triggeredBy)}
+                        </Text>
+                      )}
                       {hasAi && (
                         <Text size="xs" c={colors.textSecondary} lineClamp={1}>
                           {aiSummary}

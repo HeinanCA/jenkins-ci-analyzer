@@ -9,6 +9,7 @@ export interface FailureEntry {
   readonly classification: string | null;
   readonly confidence: number | null;
   readonly matches: unknown;
+  readonly triggeredBy: string | null;
   readonly [key: string]: unknown;
 }
 

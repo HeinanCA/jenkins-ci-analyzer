@@ -9,12 +9,22 @@ import {
 import { jenkinsGet } from "../services/jenkins-client";
 import Bottleneck from "bottleneck";
 
+interface JenkinsBuildCause {
+  readonly userName?: string;
+  readonly shortDescription?: string;
+}
+
+interface JenkinsBuildAction {
+  readonly causes?: readonly JenkinsBuildCause[];
+}
+
 interface JenkinsBuildEntry {
   readonly number: number;
   readonly result: string | null;
   readonly timestamp: number;
   readonly duration: number;
   readonly estimatedDuration: number;
+  readonly actions?: readonly JenkinsBuildAction[];
 }
 
 interface JenkinsBuildHistoryResponse {
@@ -81,7 +91,7 @@ export const syncBuilds: Task = async (payload, helpers) => {
   for (const job of activeJobs) {
     try {
       const jobUrl = jobPathToJenkinsUrl(instance.baseUrl, job.fullPath);
-      const url = `${jobUrl}/api/json?tree=builds[number,result,timestamp,duration,estimatedDuration]{0,10}`;
+      const url = `${jobUrl}/api/json?tree=builds[number,result,timestamp,duration,estimatedDuration,actions[causes[userName,shortDescription]]]{0,10}`;
 
       const data = await limiter.schedule(() =>
         jenkinsGet<JenkinsBuildHistoryResponse>(url, credentials),
@@ -90,6 +100,9 @@ export const syncBuilds: Task = async (payload, helpers) => {
       if (!data.builds || data.builds.length === 0) continue;
 
       for (const build of data.builds) {
+        const causes = build.actions?.find((a) => a.causes)?.causes ?? [];
+        const triggeredBy = causes[0]?.userName ?? null;
+
         await db
           .insert(builds)
           .values({
@@ -100,12 +113,14 @@ export const syncBuilds: Task = async (payload, helpers) => {
             startedAt: new Date(build.timestamp),
             durationMs: build.duration,
             estimatedDurationMs: build.estimatedDuration,
+            triggeredBy,
           })
           .onConflictDoUpdate({
             target: [builds.jobId, builds.buildNumber],
             set: {
               result: build.result,
               durationMs: build.duration,
+              triggeredBy,
             },
           });
       }

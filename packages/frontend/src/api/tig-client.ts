@@ -337,4 +337,70 @@ export const tigHealth = {
     >(`/v1/instances/${instanceId}/queue`),
 };
 
+// Current user
+export const tigMe = {
+  get: () =>
+    request<{
+      id: string;
+      email: string;
+      displayName: string;
+      role: string;
+    }>("/v1/me"),
+};
+
+// Admin
+export const tigAdmin = {
+  listUsers: () =>
+    request<
+      {
+        id: string;
+        email: string;
+        displayName: string;
+        role: string;
+        createdAt: string;
+      }[]
+    >("/v1/admin/users"),
+  updateRole: (userId: string, role: string) =>
+    request("/v1/admin/users/" + userId, {
+      method: "PATCH",
+      body: JSON.stringify({ role }),
+    }),
+  removeUser: (userId: string) =>
+    request("/v1/admin/users/" + userId, { method: "DELETE" }),
+};
+
+// Invitations
+export const tigInvitations = {
+  list: () =>
+    request<
+      {
+        id: string;
+        email: string;
+        role: string;
+        token: string;
+        expiresAt: string;
+        createdAt: string;
+      }[]
+    >("/v1/admin/invitations"),
+  create: (email: string, role?: string) =>
+    request<{
+      id: string;
+      email: string;
+      token: string;
+      expiresAt: string;
+      inviteUrl: string;
+    }>("/v1/admin/invitations", {
+      method: "POST",
+      body: JSON.stringify({ email, role }),
+    }),
+  revoke: (id: string) =>
+    request("/v1/admin/invitations/" + id, { method: "DELETE" }),
+  accept: (token: string, name: string, password: string) =>
+    fetch(`${API_BASE.replace("/api", "")}/api/v1/invite/accept`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token, name, password }),
+    }).then((r) => r.json()),
+};
+
 export { TigApiError };

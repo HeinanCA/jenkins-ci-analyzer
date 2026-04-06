@@ -1,8 +1,11 @@
 import type { FastifyInstance } from "fastify";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db } from "../db/connection";
 import { organizations, users } from "../db/schema";
 import { requireAuth } from "../middleware/auth";
+
+const VALID_ROLES = ["admin", "member", "viewer"] as const;
+type UserRole = (typeof VALID_ROLES)[number];
 
 export async function organizationRoutes(app: FastifyInstance) {
   // Setup route — disabled for now (invitation-only mode)
@@ -143,6 +146,176 @@ export async function organizationRoutes(app: FastifyInstance) {
       }
 
       return { data: org, error: null };
+    },
+  );
+
+  // Current user info (for frontend role checks)
+  app.get("/api/v1/me", { preHandler: requireAuth }, async (request) => {
+    const { id: orgId, role } = request.tigSession!.org;
+    const email = request.tigSession!.user.email;
+
+    const [me] = await db
+      .select({
+        id: users.id,
+        email: users.email,
+        displayName: users.displayName,
+        role: users.role,
+      })
+      .from(users)
+      .where(and(eq(users.organizationId, orgId), eq(users.email, email)))
+      .limit(1);
+
+    return { data: me ?? { email, role }, error: null };
+  });
+
+  // ─── Admin: List org users ─────────────────────────────────────
+  app.get(
+    "/api/v1/admin/users",
+    { preHandler: requireAuth },
+    async (request, reply) => {
+      const { id: orgId, role } = request.tigSession!.org;
+      if (role !== "admin") {
+        return reply
+          .status(403)
+          .send({ data: null, error: "Admin access required" });
+      }
+
+      const orgUsers = await db
+        .select({
+          id: users.id,
+          email: users.email,
+          displayName: users.displayName,
+          role: users.role,
+          createdAt: users.createdAt,
+        })
+        .from(users)
+        .where(eq(users.organizationId, orgId));
+
+      return { data: orgUsers, error: null };
+    },
+  );
+
+  // ─── Admin: Update user role ───────────────────────────────────
+  app.patch<{ Params: { userId: string }; Body: { role: string } }>(
+    "/api/v1/admin/users/:userId",
+    { preHandler: requireAuth },
+    async (request, reply) => {
+      const { id: orgId, role } = request.tigSession!.org;
+      if (role !== "admin") {
+        return reply
+          .status(403)
+          .send({ data: null, error: "Admin access required" });
+      }
+
+      const { userId } = request.params;
+      const { role: newRole } = request.body;
+
+      if (!newRole || !VALID_ROLES.includes(newRole as UserRole)) {
+        return reply.status(400).send({
+          data: null,
+          error: `Invalid role. Must be one of: ${VALID_ROLES.join(", ")}`,
+        });
+      }
+
+      // Verify target user belongs to this org
+      const [targetUser] = await db
+        .select({ id: users.id, role: users.role })
+        .from(users)
+        .where(and(eq(users.id, userId), eq(users.organizationId, orgId)))
+        .limit(1);
+
+      if (!targetUser) {
+        return reply
+          .status(404)
+          .send({ data: null, error: "User not found in your organization" });
+      }
+
+      // Prevent demoting the last admin
+      if (targetUser.role === "admin" && newRole !== "admin") {
+        const adminCount = await db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(users)
+          .where(and(eq(users.organizationId, orgId), eq(users.role, "admin")));
+
+        if ((adminCount[0]?.count ?? 0) <= 1) {
+          return reply.status(400).send({
+            data: null,
+            error: "Cannot demote the last admin",
+          });
+        }
+      }
+
+      const [updated] = await db
+        .update(users)
+        .set({ role: newRole as UserRole })
+        .where(and(eq(users.id, userId), eq(users.organizationId, orgId)))
+        .returning({
+          id: users.id,
+          email: users.email,
+          displayName: users.displayName,
+          role: users.role,
+          createdAt: users.createdAt,
+        });
+
+      return { data: updated, error: null };
+    },
+  );
+
+  // ─── Admin: Remove user ────────────────────────────────────────
+  app.delete<{ Params: { userId: string } }>(
+    "/api/v1/admin/users/:userId",
+    { preHandler: requireAuth },
+    async (request, reply) => {
+      const { id: orgId, role } = request.tigSession!.org;
+      if (role !== "admin") {
+        return reply
+          .status(403)
+          .send({ data: null, error: "Admin access required" });
+      }
+
+      const { userId } = request.params;
+      const currentUserEmail = request.tigSession!.user.email;
+
+      // Verify target user belongs to this org
+      const [targetUser] = await db
+        .select({ id: users.id, email: users.email, role: users.role })
+        .from(users)
+        .where(and(eq(users.id, userId), eq(users.organizationId, orgId)))
+        .limit(1);
+
+      if (!targetUser) {
+        return reply
+          .status(404)
+          .send({ data: null, error: "User not found in your organization" });
+      }
+
+      // Cannot delete yourself
+      if (targetUser.email === currentUserEmail) {
+        return reply
+          .status(400)
+          .send({ data: null, error: "Cannot remove yourself" });
+      }
+
+      // Cannot delete the last admin
+      if (targetUser.role === "admin") {
+        const adminCount = await db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(users)
+          .where(and(eq(users.organizationId, orgId), eq(users.role, "admin")));
+
+        if ((adminCount[0]?.count ?? 0) <= 1) {
+          return reply.status(400).send({
+            data: null,
+            error: "Cannot remove the last admin",
+          });
+        }
+      }
+
+      await db
+        .delete(users)
+        .where(and(eq(users.id, userId), eq(users.organizationId, orgId)));
+
+      return { data: null, error: null };
     },
   );
 }

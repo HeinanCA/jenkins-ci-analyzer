@@ -13,16 +13,33 @@ import { useQuery } from "@tanstack/react-query";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { useHover } from "../hooks/use-hover";
 import { useAuthStore } from "../../store/auth-store";
-import { tigAiCost, tigAiHealth, tigDashboard } from "../../api/tig-client";
+import {
+  tigAiCost,
+  tigAiHealth,
+  tigDashboard,
+  tigMe,
+} from "../../api/tig-client";
 import { colors } from "../../theme/mantine-theme";
 
-const NAV_ITEMS = [
+const BASE_NAV_ITEMS: readonly NavItem[] = [
   { label: "Dashboard", path: "/", icon: "◎" },
   { label: "Failures", path: "/failures", icon: "⚡" },
   { label: "Health", path: "/health", icon: "♥" },
   { label: "Trends", path: "/trends", icon: "◆" },
   { label: "Teams", path: "/teams", icon: "⊞" },
-] as const;
+];
+
+const ADMIN_NAV_ITEM: NavItem = {
+  label: "Users",
+  path: "/admin/users",
+  icon: "☺",
+};
+
+interface NavItem {
+  readonly label: string;
+  readonly path: string;
+  readonly icon: string;
+}
 
 import "../styles/animations.css";
 
@@ -128,6 +145,17 @@ export function AppShellLayout() {
   const logout = useAuthStore((s) => s.logout);
   const { hovered: hoveredPath, bind: hoverBind } = useHover<string>();
 
+  const { data: meData } = useQuery({
+    queryKey: ["me"],
+    queryFn: () => tigMe.get(),
+    staleTime: 60_000,
+  });
+
+  const isAdmin = meData?.role === "admin";
+  const navItems = isAdmin
+    ? [...BASE_NAV_ITEMS, ADMIN_NAV_ITEM]
+    : BASE_NAV_ITEMS;
+
   return (
     <MantineAppShell
       navbar={{ width: 220, breakpoint: "sm" }}
@@ -191,7 +219,7 @@ export function AppShellLayout() {
 
       <MantineAppShell.Navbar p="xs" pt="md">
         <Stack gap={4}>
-          {NAV_ITEMS.map((item) => {
+          {navItems.map((item) => {
             const isActive = location.pathname === item.path;
             const isHovered = hoveredPath === item.path && !isActive;
             return (

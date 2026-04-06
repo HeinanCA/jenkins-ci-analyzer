@@ -325,6 +325,26 @@ export const patternCandidates = pgTable("pattern_candidates", {
   promotedBy: uuid("promoted_by").references(() => users.id),
 });
 
+export const invitations = pgTable("invitations", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  organizationId: uuid("organization_id")
+    .references(() => organizations.id)
+    .notNull(),
+  email: text("email").notNull(),
+  role: text("role", { enum: ["admin", "member", "viewer"] })
+    .notNull()
+    .default("member"),
+  token: text("token").notNull().unique(),
+  invitedBy: uuid("invited_by")
+    .references(() => users.id)
+    .notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
+
 export const aiHealthChecks = pgTable("ai_health_checks", {
   id: uuid("id").defaultRandom().primaryKey(),
   status: text("status").notNull(),

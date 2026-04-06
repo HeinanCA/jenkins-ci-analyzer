@@ -4,11 +4,13 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { theme } from "./theme/mantine-theme";
 import { useAuthStore } from "./store/auth-store";
 import { LoginPage } from "./features/auth/LoginPage";
+import { InvitePage } from "./features/auth/InvitePage";
 import { DashboardPage } from "./features/dashboard/DashboardPage";
 import { FailuresPage } from "./features/failures/FailuresPage";
 import { HealthPage } from "./features/health/HealthPage";
 import { TeamsPage } from "./features/teams/TeamsPage";
 import { TrendsPage } from "./features/trends/TrendsPage";
+import { UsersPage } from "./features/admin/UsersPage";
 import { AppShellLayout } from "./shared/components/AppShell";
 import "@mantine/core/styles.css";
 
@@ -35,6 +37,7 @@ export default function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/invite" element={<InvitePage />} />
             <Route
               element={
                 <AuthGuard>
@@ -47,6 +50,7 @@ export default function App() {
               <Route path="/health" element={<HealthPage />} />
               <Route path="/trends" element={<TrendsPage />} />
               <Route path="/teams" element={<TeamsPage />} />
+              <Route path="/admin/users" element={<UsersPage />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

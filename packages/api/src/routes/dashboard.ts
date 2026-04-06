@@ -17,21 +17,6 @@ import {
   type EncryptedCredentials,
 } from "../services/credential-vault";
 
-interface JenkinsJobsWithBuildsResponse {
-  readonly jobs: readonly {
-    readonly name: string;
-    readonly url: string;
-    readonly builds: readonly {
-      readonly number: number;
-      readonly result: string | null;
-      readonly timestamp: number;
-      readonly building: boolean;
-      readonly duration: number;
-      readonly estimatedDuration: number;
-    }[];
-  }[];
-}
-
 interface RunningBuild {
   readonly jobName: string;
   readonly jobUrl: string;
@@ -474,19 +459,16 @@ export async function dashboardRoutes(app: FastifyInstance) {
     return { data: queueItems, error: null };
   });
 
-  // Running builds — live from Jenkins
+  // Running builds — from DB (sees nested folders, no live Jenkins call)
   app.get<{
     Params: { instanceId: string };
   }>("/api/v1/instances/:instanceId/running-builds", async (request, reply) => {
     const orgId = request.tigSession!.org.id;
     const { instanceId } = request.params;
 
+    // Verify instance belongs to org
     const [instance] = await db
-      .select({
-        id: ciInstances.id,
-        baseUrl: ciInstances.baseUrl,
-        credentials: ciInstances.credentials,
-      })
+      .select({ id: ciInstances.id })
       .from(ciInstances)
       .where(
         and(
@@ -503,51 +485,69 @@ export async function dashboardRoutes(app: FastifyInstance) {
       });
     }
 
-    const credentials = decryptCredentials(
-      instance.credentials as EncryptedCredentials,
-    );
-
-    const tree =
-      "jobs[name,url,builds[number,result,timestamp,building,duration,estimatedDuration]{0,5}]";
-    const url = `${instance.baseUrl.replace(/\/$/, "")}/api/json?tree=${tree}`;
-
-    let jenkinsData: JenkinsJobsWithBuildsResponse;
-    try {
-      jenkinsData = await jenkinsGet<JenkinsJobsWithBuildsResponse>(
-        url,
-        credentials,
+    // Find all jobs currently building (_anime suffix in color)
+    const buildingJobs = await db
+      .select({
+        id: jobs.id,
+        name: jobs.name,
+        fullPath: jobs.fullPath,
+        url: jobs.url,
+      })
+      .from(jobs)
+      .where(
+        and(
+          eq(jobs.organizationId, orgId),
+          eq(jobs.ciInstanceId, instanceId),
+          sql`${jobs.color} LIKE '%_anime'`,
+        ),
       );
-    } catch {
-      return reply.status(502).send({
-        data: null,
-        error: "Failed to fetch build data from Jenkins",
-      });
+
+    if (buildingJobs.length === 0) {
+      return { data: [], error: null };
     }
 
+    // For each building job, get the latest build from DB
     const now = Date.now();
-    const runningBuilds: RunningBuild[] = (jenkinsData.jobs ?? []).flatMap(
-      (job) =>
-        (job.builds ?? [])
-          .filter((b) => b.building === true)
-          .map((b): RunningBuild => {
-            const durationMs = now - b.timestamp;
-            const estimatedMs =
-              b.estimatedDuration > 0 ? b.estimatedDuration : 1;
-            const progress = Math.min(
-              100,
-              Math.round((durationMs / estimatedMs) * 100),
-            );
-            return {
-              jobName: job.name,
-              jobUrl: job.url,
-              buildNumber: b.number,
-              startedAt: new Date(b.timestamp).toISOString(),
-              durationMs,
-              estimatedMs,
-              progress,
-            };
-          }),
-    );
+    const runningBuilds: RunningBuild[] = [];
+
+    for (const job of buildingJobs) {
+      const [latestBuild] = await db
+        .select({
+          buildNumber: builds.buildNumber,
+          startedAt: builds.startedAt,
+          estimatedDurationMs: builds.estimatedDurationMs,
+        })
+        .from(builds)
+        .where(eq(builds.jobId, job.id))
+        .orderBy(desc(builds.buildNumber))
+        .limit(1);
+
+      if (!latestBuild) {
+        continue;
+      }
+
+      const startedAtMs = latestBuild.startedAt.getTime();
+      const durationMs = now - startedAtMs;
+      const estimatedMs =
+        latestBuild.estimatedDurationMs != null &&
+        latestBuild.estimatedDurationMs > 0
+          ? latestBuild.estimatedDurationMs
+          : 1;
+      const progress = Math.min(
+        100,
+        Math.round((durationMs / estimatedMs) * 100),
+      );
+
+      runningBuilds.push({
+        jobName: job.fullPath ?? job.name,
+        jobUrl: job.url,
+        buildNumber: latestBuild.buildNumber,
+        startedAt: latestBuild.startedAt.toISOString(),
+        durationMs,
+        estimatedMs,
+        progress,
+      });
+    }
 
     return { data: runningBuilds, error: null };
   });

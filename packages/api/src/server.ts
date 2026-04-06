@@ -9,6 +9,7 @@ import { dashboardRoutes } from "./routes/dashboard";
 import { teamRoutes } from "./routes/teams";
 import { trendsRoutes } from "./routes/trends";
 import { aiHealthRoutes } from "./routes/ai-health";
+import { invitationRoutes, inviteAcceptRoute } from "./routes/invitations";
 import http from "node:http";
 
 const PORT = Number(process.env["PORT"] ?? 3000);
@@ -54,7 +55,9 @@ const app = Fastify({
     const authHandler = toNodeHandler(auth);
 
     return http.createServer((req, res) => {
-      // Block sign-up entirely — invitation-only
+      // Block direct sign-up at HTTP level — invitation-only
+      // The invite/accept endpoint uses auth.api.signUpEmail() internally,
+      // which bypasses this HTTP check entirely (server-side call)
       const pathname = (req.url ?? "").split("?")[0];
       if (pathname.includes("/sign-up")) {
         res.writeHead(403, { "Content-Type": "application/json" });
@@ -86,8 +89,13 @@ const app = Fastify({
         }
         // Rate limit login/signup
         if (req.url.includes("sign-in") || req.url.includes("sign-up")) {
+          const forwardedFor = req.headers["x-forwarded-for"]
+            ?.toString()
+            .split(",");
           const ip =
-            req.headers["x-forwarded-for"]?.toString().split(",")[0] ??
+            (forwardedFor
+              ? forwardedFor[forwardedFor.length - 1].trim()
+              : null) ??
             req.socket.remoteAddress ??
             "unknown";
           if (isAuthRateLimited(ip)) {
@@ -163,6 +171,8 @@ await app.register(dashboardRoutes);
 await app.register(teamRoutes);
 await app.register(trendsRoutes);
 await app.register(aiHealthRoutes);
+await app.register(invitationRoutes);
+await app.register(inviteAcceptRoute);
 
 // Health
 app.get("/health", async () => ({

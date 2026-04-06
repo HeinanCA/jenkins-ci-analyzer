@@ -104,6 +104,23 @@ export async function requireAuth(
   };
 }
 
+// ─── Admin guard ─────────────────────────────────────────────────
+export async function requireAdmin(
+  request: FastifyRequest,
+  reply: FastifyReply,
+) {
+  // requireAuth must run first to populate tigSession
+  await requireAuth(request, reply);
+  if (reply.sent) return;
+
+  if (request.tigSession?.org.role !== "admin") {
+    return reply.status(403).send({
+      data: null,
+      error: "Admin access required",
+    });
+  }
+}
+
 // ─── Type augmentation ──────────────────────────────────────────
 declare module "fastify" {
   interface FastifyRequest {

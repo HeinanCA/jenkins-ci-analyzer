@@ -10,8 +10,12 @@ import {
   ActionIcon,
   Modal,
   Button,
+  TextInput,
+  CopyButton,
+  Tooltip,
+  Divider,
 } from "@mantine/core";
-import { tigAdmin } from "../../api/tig-client";
+import { tigAdmin, tigInvitations } from "../../api/tig-client";
 import { colors, cardStyle } from "../../theme/mantine-theme";
 import { PageHeader } from "../../shared/components/PageHeader";
 import { LoadingState } from "../../shared/components/LoadingState";
@@ -47,6 +51,8 @@ export function UsersPage() {
   const [confirmRemove, setConfirmRemove] = useState<ConfirmRemoveState | null>(
     null,
   );
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteLink, setInviteLink] = useState<string | null>(null);
 
   const usersQuery = useQuery({
     queryKey: ["admin-users"],
@@ -69,6 +75,20 @@ export function UsersPage() {
     },
   });
 
+  const inviteMutation = useMutation({
+    mutationFn: (email: string) => tigInvitations.create(email),
+    onSuccess: (data) => {
+      setInviteEmail("");
+      setInviteLink(data.inviteUrl ?? data.token ?? null);
+      queryClient.invalidateQueries({ queryKey: ["admin-invitations"] });
+    },
+  });
+
+  const pendingInvites = useQuery({
+    queryKey: ["admin-invitations"],
+    queryFn: () => tigInvitations.list(),
+  });
+
   if (usersQuery.isLoading) return <LoadingState />;
 
   if (usersQuery.isError) {
@@ -85,6 +105,105 @@ export function UsersPage() {
   return (
     <Stack gap="md">
       <PageHeader title="Users" />
+
+      {/* Invite section */}
+      <Card radius="md" style={cardStyle} p="md">
+        <Text size="sm" fw={600} c={colors.text} mb="sm">
+          Invite a user
+        </Text>
+        <Group gap="xs">
+          <TextInput
+            placeholder="email@company.com"
+            size="xs"
+            value={inviteEmail}
+            onChange={(e) => {
+              setInviteEmail(e.currentTarget.value);
+              setInviteLink(null);
+            }}
+            style={{ flex: 1 }}
+            styles={{
+              input: {
+                backgroundColor: colors.surfaceSolid,
+                borderColor: colors.border,
+                color: colors.text,
+              },
+            }}
+          />
+          <Button
+            size="xs"
+            color="orange"
+            loading={inviteMutation.isPending}
+            disabled={!inviteEmail.includes("@")}
+            onClick={() => inviteMutation.mutate(inviteEmail)}
+          >
+            Send Invite
+          </Button>
+        </Group>
+        {inviteLink && (
+          <Group gap="xs" mt="sm">
+            <TextInput
+              size="xs"
+              value={inviteLink}
+              readOnly
+              style={{ flex: 1 }}
+              styles={{
+                input: {
+                  backgroundColor: colors.surfaceLight,
+                  borderColor: colors.border,
+                  color: colors.textSecondary,
+                  fontFamily: "monospace",
+                  fontSize: 11,
+                },
+              }}
+            />
+            <CopyButton value={inviteLink}>
+              {({ copied, copy }) => (
+                <Tooltip label={copied ? "Copied!" : "Copy link"}>
+                  <Button
+                    size="xs"
+                    variant="light"
+                    color={copied ? "green" : "orange"}
+                    onClick={copy}
+                  >
+                    {copied ? "Copied" : "Copy"}
+                  </Button>
+                </Tooltip>
+              )}
+            </CopyButton>
+          </Group>
+        )}
+        {inviteMutation.isError && (
+          <Text size="xs" c={colors.failure} mt="xs">
+            {inviteMutation.error?.message ?? "Failed to create invitation"}
+          </Text>
+        )}
+      </Card>
+
+      {/* Pending invitations */}
+      {(pendingInvites.data ?? []).length > 0 && (
+        <Card radius="md" style={cardStyle} p="md">
+          <Text size="xs" fw={600} c={colors.textTertiary} mb="xs">
+            Pending invitations
+          </Text>
+          {(pendingInvites.data ?? []).map((inv) => (
+            <Group key={inv.id} justify="space-between" py={4}>
+              <Text size="xs" c={colors.textSecondary}>
+                {inv.email}
+              </Text>
+              <Group gap="xs">
+                <Text size="xs" c={colors.textMuted}>
+                  Expires {formatDate(inv.expiresAt)}
+                </Text>
+                <Badge size="xs" variant="light" color="orange">
+                  {inv.role}
+                </Badge>
+              </Group>
+            </Group>
+          ))}
+        </Card>
+      )}
+
+      <Divider color={colors.border} />
 
       {userList.length === 0 && (
         <Card radius="md" style={cardStyle} p="xl">
@@ -105,7 +224,9 @@ export function UsersPage() {
                 <Badge
                   size="xs"
                   variant="light"
-                  styles={{ root: { color: ROLE_COLORS[u.role] ?? colors.textTertiary } }}
+                  styles={{
+                    root: { color: ROLE_COLORS[u.role] ?? colors.textTertiary },
+                  }}
                 >
                   {u.role}
                 </Badge>
@@ -143,7 +264,9 @@ export function UsersPage() {
                 size="sm"
                 variant="subtle"
                 color="red"
-                onClick={() => setConfirmRemove({ userId: u.id, email: u.email })}
+                onClick={() =>
+                  setConfirmRemove({ userId: u.id, email: u.email })
+                }
                 title="Remove user"
               >
                 x
@@ -165,8 +288,8 @@ export function UsersPage() {
       >
         <Stack gap="md">
           <Text size="sm" c={colors.text}>
-            Remove <strong>{confirmRemove?.email}</strong> from the organization?
-            They will lose access to all data.
+            Remove <strong>{confirmRemove?.email}</strong> from the
+            organization? They will lose access to all data.
           </Text>
           <Group justify="flex-end" gap="xs">
             <Button

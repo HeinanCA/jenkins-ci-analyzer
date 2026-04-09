@@ -204,12 +204,12 @@ export function AppShellLayout() {
           minHeight: "100vh",
         },
         header: {
-          backgroundColor: "rgba(30, 33, 40, 0.88)",
+          backgroundColor: "rgba(15, 17, 23, 0.92)",
           borderBottom: `1px solid ${colors.border}`,
           backdropFilter: "blur(14px)",
         },
         navbar: {
-          backgroundColor: "rgba(28, 31, 38, 0.92)",
+          backgroundColor: "rgba(15, 17, 23, 0.95)",
           borderRight: `1px solid ${colors.border}`,
           backdropFilter: "blur(14px)",
         },

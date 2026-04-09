@@ -8,10 +8,11 @@ import {
   ActionIcon,
   Tooltip,
   CopyButton,
-} from '@mantine/core';
-import { colors, codeStyle } from '../../../theme/mantine-theme';
-import { SourceLink } from './SourceLink';
-import type { FailureEntry } from '../types';
+} from "@mantine/core";
+import { colors, codeStyle } from "../../../theme/mantine-theme";
+import { SourceLink } from "./SourceLink";
+import { FeedbackButtons } from "./FeedbackButtons";
+import type { FailureEntry } from "../types";
 
 interface Props {
   readonly f: FailureEntry;
@@ -22,9 +23,13 @@ export function FailureDetail({ f }: Props) {
   const aiFixes = f.aiSuggestedFixes as Record<string, unknown> | undefined;
   const jobUrl = f.jobUrl as string | undefined;
   const hasAi = !!(f.aiSummary as string | undefined);
-  const fixes = Array.isArray(aiFixes?.fixes) ? (aiFixes.fixes as string[]) : [];
+  const fixes = Array.isArray(aiFixes?.fixes)
+    ? (aiFixes.fixes as string[])
+    : [];
   const firstFix = fixes[0];
-  const matches = Array.isArray(f.matches) ? (f.matches as Record<string, unknown>[]) : [];
+  const matches = Array.isArray(f.matches)
+    ? (f.matches as Record<string, unknown>[])
+    : [];
   const primary = matches[0];
   const noisePercent = f.logNoisePercent as number | undefined;
   const topNoise = f.logTopNoise as string | undefined;
@@ -41,7 +46,10 @@ export function FailureDetail({ f }: Props) {
 
       {aiFixes?.failingTest && (
         <Text size="xs" c={colors.textTertiary}>
-          Test: <Text span c={colors.textSecondary} fw={500}>{String(aiFixes.failingTest)}</Text>
+          Test:{" "}
+          <Text span c={colors.textSecondary} fw={500}>
+            {String(aiFixes.failingTest)}
+          </Text>
         </Text>
       )}
 
@@ -56,13 +64,18 @@ export function FailureDetail({ f }: Props) {
 
       {aiFixes?.assertion && (
         <Text size="xs" c={colors.textTertiary}>
-          Assertion: <Text span c={colors.textSecondary}>{String(aiFixes.assertion)}</Text>
+          Assertion:{" "}
+          <Text span c={colors.textSecondary}>
+            {String(aiFixes.assertion)}
+          </Text>
         </Text>
       )}
 
       {fixes.length > 0 && (
         <Stack gap="xs">
-          <Text size="xs" fw={600} c={colors.textSecondary}>Fix:</Text>
+          <Text size="xs" fw={600} c={colors.textSecondary}>
+            Fix:
+          </Text>
           {firstFix && (
             <Group gap="xs">
               <Code style={{ ...codeStyle, fontSize: 11, flex: 1 }}>
@@ -70,9 +83,14 @@ export function FailureDetail({ f }: Props) {
               </Code>
               <CopyButton value={firstFix}>
                 {({ copied, copy }) => (
-                  <Tooltip label={copied ? 'Copied' : 'Copy command'}>
-                    <ActionIcon size="xs" variant="subtle" color={copied ? 'green' : 'gray'} onClick={copy}>
-                      <Text size="xs">{copied ? '✓' : '⎘'}</Text>
+                  <Tooltip label={copied ? "Copied" : "Copy command"}>
+                    <ActionIcon
+                      size="xs"
+                      variant="subtle"
+                      color={copied ? "green" : "gray"}
+                      onClick={copy}
+                    >
+                      <Text size="xs">{copied ? "✓" : "⎘"}</Text>
                     </ActionIcon>
                   </Tooltip>
                 )}
@@ -80,7 +98,11 @@ export function FailureDetail({ f }: Props) {
             </Group>
           )}
           {fixes.length > 1 && (
-            <List size="xs" type="ordered" styles={{ item: { color: colors.textTertiary } }}>
+            <List
+              size="xs"
+              type="ordered"
+              styles={{ item: { color: colors.textTertiary } }}
+            >
               {fixes.slice(1).map((step, i) => (
                 <List.Item key={i}>{step}</List.Item>
               ))}
@@ -91,7 +113,9 @@ export function FailureDetail({ f }: Props) {
 
       {!hasAi && primary && (
         <Stack gap="xs">
-          <Text size="xs" c={colors.textSecondary}>{String(primary.description ?? '')}</Text>
+          <Text size="xs" c={colors.textSecondary}>
+            {String(primary.description ?? "")}
+          </Text>
           {primary.matchedLine && (
             <Code block style={{ ...codeStyle, fontSize: 11 }}>
               {String(primary.matchedLine)}
@@ -100,17 +124,29 @@ export function FailureDetail({ f }: Props) {
         </Stack>
       )}
 
-      <Group gap="md">
-        {noisePercent && noisePercent >= 30 && (
-          <Text size="xs" c={colors.textMuted} style={{ fontStyle: 'italic' }}>
-            💡 {noisePercent}% noise{topNoise ? ` (${topNoise})` : ''}
-          </Text>
-        )}
-        {jobUrl && (
-          <Anchor href={`${jobUrl}${f.buildNumber}/console`} target="_blank" size="xs" c={colors.textMuted}>
-            Jenkins ↗
-          </Anchor>
-        )}
+      <Group gap="md" justify="space-between">
+        <Group gap="md">
+          {noisePercent && noisePercent >= 30 && (
+            <Text
+              size="xs"
+              c={colors.textMuted}
+              style={{ fontStyle: "italic" }}
+            >
+              💡 {noisePercent}% noise{topNoise ? ` (${topNoise})` : ""}
+            </Text>
+          )}
+          {jobUrl && (
+            <Anchor
+              href={`${jobUrl}${f.buildNumber}/console`}
+              target="_blank"
+              size="xs"
+              c={colors.textMuted}
+            >
+              Jenkins ↗
+            </Anchor>
+          )}
+        </Group>
+        {hasAi && f.analysisId && <FeedbackButtons analysisId={f.analysisId} />}
       </Group>
     </Stack>
   );

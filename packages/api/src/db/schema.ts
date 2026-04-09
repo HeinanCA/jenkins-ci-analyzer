@@ -345,6 +345,56 @@ export const invitations = pgTable("invitations", {
     .notNull(),
 });
 
+export const analysisFeedback = pgTable(
+  "analysis_feedback",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id")
+      .references(() => organizations.id)
+      .notNull(),
+    buildAnalysisId: uuid("build_analysis_id")
+      .references(() => buildAnalyses.id)
+      .notNull(),
+    userId: uuid("user_id")
+      .references(() => users.id)
+      .notNull(),
+    rating: text("rating", { enum: ["helpful", "not_helpful"] }).notNull(),
+    note: text("note"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("feedback_user_analysis_idx").on(
+      table.userId,
+      table.buildAnalysisId,
+    ),
+  ],
+);
+
+export const auditEvents = pgTable(
+  "audit_events",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id")
+      .references(() => organizations.id)
+      .notNull(),
+    actorUserId: text("actor_user_id").notNull(),
+    actorEmail: text("actor_email").notNull(),
+    action: text("action").notNull(),
+    targetType: text("target_type"),
+    targetId: text("target_id"),
+    metadata: jsonb("metadata").default({}),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("audit_events_org_id_idx").on(table.organizationId),
+    index("audit_events_created_at_idx").on(table.createdAt),
+  ],
+);
+
 export const aiHealthChecks = pgTable("ai_health_checks", {
   id: uuid("id").defaultRandom().primaryKey(),
   status: text("status").notNull(),

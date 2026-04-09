@@ -5,7 +5,6 @@ import { theme } from "./theme/mantine-theme";
 import { useAuthStore } from "./store/auth-store";
 import { LoginPage } from "./features/auth/LoginPage";
 import { InvitePage } from "./features/auth/InvitePage";
-import { DashboardPage } from "./features/dashboard/DashboardPage";
 import { FailuresPage } from "./features/failures/FailuresPage";
 import { HealthPage } from "./features/health/HealthPage";
 import { TeamsPage } from "./features/teams/TeamsPage";
@@ -45,7 +44,7 @@ export default function App() {
                 </AuthGuard>
               }
             >
-              <Route path="/" element={<DashboardPage />} />
+              <Route path="/" element={<FailuresPage />} />
               <Route path="/failures" element={<FailuresPage />} />
               <Route path="/health" element={<HealthPage />} />
               <Route path="/trends" element={<TrendsPage />} />

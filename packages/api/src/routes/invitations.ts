@@ -6,6 +6,7 @@ import { sql } from "../db/connection";
 import { invitations, users } from "../db/schema";
 import { requireAdmin } from "../middleware/auth";
 import { auth } from "../auth";
+import { logAudit } from "../services/audit";
 
 const INVITATION_EXPIRY_DAYS = 7;
 const MAX_EMAIL_LENGTH = 320;
@@ -135,6 +136,16 @@ export async function invitationRoutes(app: FastifyInstance) {
 
       const inviteUrl = `${getFrontendBase()}/invite?token=${token}`;
 
+      await logAudit({
+        organizationId: orgId,
+        actorUserId: request.tigSession!.user.id,
+        actorEmail: request.tigSession!.user.email,
+        action: "invite.created",
+        targetType: "invitation",
+        targetId: created.id,
+        metadata: { email, role: selectedRole },
+      });
+
       return reply.status(201).send({
         data: { ...created, inviteUrl },
         error: null,
@@ -186,7 +197,7 @@ export async function invitationRoutes(app: FastifyInstance) {
             eq(invitations.organizationId, orgId),
           ),
         )
-        .returning({ id: invitations.id });
+        .returning({ id: invitations.id, email: invitations.email });
 
       if (!deleted) {
         return reply.status(404).send({
@@ -194,6 +205,16 @@ export async function invitationRoutes(app: FastifyInstance) {
           error: "Invitation not found",
         });
       }
+
+      await logAudit({
+        organizationId: orgId,
+        actorUserId: request.tigSession!.user.id,
+        actorEmail: request.tigSession!.user.email,
+        action: "invite.revoked",
+        targetType: "invitation",
+        targetId: deleted.id,
+        metadata: { email: deleted.email },
+      });
 
       return { data: { id: deleted.id }, error: null };
     },
@@ -314,6 +335,16 @@ export async function inviteAcceptRoute(app: FastifyInstance) {
       SET accepted_at = now()
       WHERE id = ${invitation.id}::uuid
     `;
+
+    await logAudit({
+      organizationId: invitation.organization_id,
+      actorUserId: invitation.invited_by,
+      actorEmail: invitation.email,
+      action: "invite.accepted",
+      targetType: "invitation",
+      targetId: invitation.id,
+      metadata: { email: invitation.email },
+    });
 
     return { data: { success: true }, error: null };
   });

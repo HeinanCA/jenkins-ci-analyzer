@@ -6,6 +6,7 @@ export interface FailureEntry {
   readonly durationMs: number;
   readonly jobName: string;
   readonly jobFullPath: string;
+  readonly analysisId: string | null;
   readonly classification: string | null;
   readonly confidence: number | null;
   readonly matches: unknown;

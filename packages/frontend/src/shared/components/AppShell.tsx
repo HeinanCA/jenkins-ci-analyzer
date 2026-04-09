@@ -22,11 +22,8 @@ import {
 import { colors } from "../../theme/mantine-theme";
 
 const BASE_NAV_ITEMS: readonly NavItem[] = [
-  { label: "Dashboard", path: "/", icon: "◎" },
-  { label: "Failures", path: "/failures", icon: "⚡" },
-  { label: "Health", path: "/health", icon: "♥" },
+  { label: "Failures", path: "/", icon: "⚡" },
   { label: "Trends", path: "/trends", icon: "◆" },
-  { label: "Teams", path: "/teams", icon: "⊞" },
 ];
 
 const ADMIN_NAV_ITEM: NavItem = {
@@ -261,7 +258,7 @@ export function AppShellLayout() {
                       {item.label}
                     </Text>
                   </Group>
-                  {item.path === "/failures" && <FailureCount />}
+                  {item.path === "/" && <FailureCount />}
                 </Group>
               </Box>
             );

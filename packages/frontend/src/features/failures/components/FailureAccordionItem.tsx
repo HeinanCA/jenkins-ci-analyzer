@@ -4,6 +4,7 @@ import {
   Box,
   Divider,
   Group,
+  Loader,
   Stack,
   Text,
   Tooltip,
@@ -27,8 +28,10 @@ export function FailureAccordionItem({
   onHover,
 }: FailureAccordionItemProps) {
   const f = group.latest;
+  const aiRootCause = f.aiRootCause as string | undefined;
   const aiSummary = f.aiSummary as string | undefined;
-  const hasAi = !!aiSummary;
+  const aiDisplay = aiRootCause || aiSummary;
+  const hasAi = !!aiSummary || !!aiRootCause;
 
   return (
     <Accordion.Item
@@ -72,10 +75,17 @@ export function FailureAccordionItem({
                 Triggered by {String(f.triggeredBy)}
               </Text>
             )}
-            {hasAi && (
-              <Text size="xs" c={colors.textSecondary} lineClamp={1}>
-                {aiSummary}
+            {hasAi ? (
+              <Text size="xs" c={colors.text} fw={500} lineClamp={1}>
+                {aiDisplay}
               </Text>
+            ) : (
+              <Group gap={4}>
+                <Loader size={10} color={colors.textMuted} />
+                <Text size="xs" c={colors.textMuted}>
+                  Analyzing...
+                </Text>
+              </Group>
             )}
           </Stack>
           <Group gap={4}>
@@ -83,9 +93,7 @@ export function FailureAccordionItem({
               <Badge
                 size="xs"
                 variant="light"
-                color={
-                  f.classification === "infrastructure" ? "red" : "orange"
-                }
+                color={f.classification === "infrastructure" ? "red" : "orange"}
               >
                 {f.classification === "infrastructure" ? "Infra" : "Code"}
               </Badge>

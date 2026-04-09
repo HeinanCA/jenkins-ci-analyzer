@@ -8,6 +8,8 @@ import {
   healthSnapshots,
   ciInstances,
   teams,
+  analysisFeedback,
+  users,
 } from "../db/schema";
 import { jobMatchesTeam } from "./teams";
 import { requireAuth } from "../middleware/auth";
@@ -162,6 +164,7 @@ export async function dashboardRoutes(app: FastifyInstance) {
         jobUrl: jobs.url,
         gitSha: builds.gitSha,
         gitRemoteUrl: builds.gitRemoteUrl,
+        analysisId: buildAnalyses.id,
         classification: buildAnalyses.classification,
         confidence: buildAnalyses.confidence,
         matches: buildAnalyses.matches,
@@ -581,6 +584,117 @@ export async function dashboardRoutes(app: FastifyInstance) {
     return { data: recentBuilds, error: null };
   });
 
+  // Submit feedback on an analysis (upsert)
+  app.post<{
+    Params: { analysisId: string };
+    Body: { rating: "helpful" | "not_helpful"; note?: string };
+  }>("/api/v1/analyses/:analysisId/feedback", async (request, reply) => {
+    const orgId = request.tigSession!.org.id;
+    const email = request.tigSession!.user.email;
+    const { analysisId } = request.params;
+    const { rating, note } = request.body ?? {};
+
+    if (!rating || !["helpful", "not_helpful"].includes(rating)) {
+      return reply.status(400).send({
+        data: null,
+        error: "rating must be 'helpful' or 'not_helpful'",
+      });
+    }
+
+    // Verify analysis belongs to user's org
+    const [analysis] = await db
+      .select({ id: buildAnalyses.id })
+      .from(buildAnalyses)
+      .where(
+        and(
+          eq(buildAnalyses.id, analysisId),
+          eq(buildAnalyses.organizationId, orgId),
+        ),
+      )
+      .limit(1);
+
+    if (!analysis) {
+      return reply.status(404).send({
+        data: null,
+        error: "Analysis not found",
+      });
+    }
+
+    // Resolve app user by email + org
+    const [appUser] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(and(eq(users.organizationId, orgId), eq(users.email, email)))
+      .limit(1);
+
+    if (!appUser) {
+      return reply.status(403).send({
+        data: null,
+        error: "User not found in organization",
+      });
+    }
+
+    // Upsert feedback (user can change their vote)
+    const [result] = await db
+      .insert(analysisFeedback)
+      .values({
+        organizationId: orgId,
+        buildAnalysisId: analysisId,
+        userId: appUser.id,
+        rating,
+        note: note ?? null,
+      })
+      .onConflictDoUpdate({
+        target: [analysisFeedback.userId, analysisFeedback.buildAnalysisId],
+        set: {
+          rating,
+          note: note ?? null,
+          createdAt: sql`now()`,
+        },
+      })
+      .returning({ id: analysisFeedback.id, rating: analysisFeedback.rating });
+
+    return { data: result, error: null };
+  });
+
+  // Get current user's feedback for an analysis
+  app.get<{
+    Params: { analysisId: string };
+  }>("/api/v1/analyses/:analysisId/feedback", async (request) => {
+    const orgId = request.tigSession!.org.id;
+    const email = request.tigSession!.user.email;
+    const { analysisId } = request.params;
+
+    // Resolve app user
+    const [appUser] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(and(eq(users.organizationId, orgId), eq(users.email, email)))
+      .limit(1);
+
+    if (!appUser) {
+      return { data: null, error: null };
+    }
+
+    const [feedback] = await db
+      .select({
+        id: analysisFeedback.id,
+        rating: analysisFeedback.rating,
+        note: analysisFeedback.note,
+      })
+      .from(analysisFeedback)
+      .where(
+        and(
+          eq(analysisFeedback.buildAnalysisId, analysisId),
+          eq(analysisFeedback.userId, appUser.id),
+          eq(analysisFeedback.organizationId, orgId),
+        ),
+      )
+      .limit(1);
+
+    return { data: feedback ?? null, error: null };
+  });
+
   // AI cost tracking + status
   app.get("/api/v1/dashboard/ai-cost", async (request) => {
     const orgId = request.tigSession!.org.id;
@@ -609,6 +723,26 @@ export async function dashboardRoutes(app: FastifyInstance) {
 
     const aiDown = latestAnalysis ? latestAnalysis.aiSummary === null : false;
 
+    // Feedback stats
+    const feedbackRows = await db
+      .select({
+        rating: analysisFeedback.rating,
+        total: count(analysisFeedback.id),
+      })
+      .from(analysisFeedback)
+      .where(eq(analysisFeedback.organizationId, orgId))
+      .groupBy(analysisFeedback.rating);
+
+    const helpfulCount = Number(
+      feedbackRows.find((r) => r.rating === "helpful")?.total ?? 0,
+    );
+    const notHelpfulCount = Number(
+      feedbackRows.find((r) => r.rating === "not_helpful")?.total ?? 0,
+    );
+    const feedbackTotal = helpfulCount + notHelpfulCount;
+    const helpfulPercent =
+      feedbackTotal > 0 ? Math.round((helpfulCount / feedbackTotal) * 100) : 0;
+
     return {
       data: {
         totalCostUsd: Number(result.totalCost ?? 0),
@@ -620,6 +754,9 @@ export async function dashboardRoutes(app: FastifyInstance) {
           ? Number(result.totalCost ?? 0) / Number(result.aiCount)
           : 0,
         aiStatus: aiDown ? "degraded" : "healthy",
+        helpfulCount,
+        notHelpfulCount,
+        helpfulPercent,
       },
       error: null,
     };

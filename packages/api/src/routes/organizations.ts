@@ -3,6 +3,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { db } from "../db/connection";
 import { organizations, users } from "../db/schema";
 import { requireAuth } from "../middleware/auth";
+import { logAudit } from "../services/audit";
 
 const VALID_ROLES = ["admin", "member", "viewer"] as const;
 type UserRole = (typeof VALID_ROLES)[number];
@@ -245,6 +246,7 @@ export async function organizationRoutes(app: FastifyInstance) {
         }
       }
 
+      const oldRole = targetUser.role;
       const [updated] = await db
         .update(users)
         .set({ role: newRole as UserRole })
@@ -256,6 +258,16 @@ export async function organizationRoutes(app: FastifyInstance) {
           role: users.role,
           createdAt: users.createdAt,
         });
+
+      await logAudit({
+        organizationId: orgId,
+        actorUserId: request.tigSession!.user.id,
+        actorEmail: request.tigSession!.user.email,
+        action: "member.role_changed",
+        targetType: "user",
+        targetId: userId,
+        metadata: { oldRole, newRole },
+      });
 
       return { data: updated, error: null };
     },
@@ -314,6 +326,16 @@ export async function organizationRoutes(app: FastifyInstance) {
       await db
         .delete(users)
         .where(and(eq(users.id, userId), eq(users.organizationId, orgId)));
+
+      await logAudit({
+        organizationId: orgId,
+        actorUserId: request.tigSession!.user.id,
+        actorEmail: request.tigSession!.user.email,
+        action: "member.removed",
+        targetType: "user",
+        targetId: userId,
+        metadata: { email: targetUser.email },
+      });
 
       return { data: null, error: null };
     },

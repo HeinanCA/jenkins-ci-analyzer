@@ -164,7 +164,27 @@ export const tigAiCost = {
       analyzedCount: number;
       aiAnalyzedCount: number;
       avgCostPerAnalysis: number;
+      helpfulCount: number;
+      notHelpfulCount: number;
+      helpfulPercent: number;
     }>("/v1/dashboard/ai-cost"),
+};
+
+// Feedback
+export const tigFeedback = {
+  submit: (
+    analysisId: string,
+    rating: "helpful" | "not_helpful",
+    note?: string,
+  ) =>
+    request<{ id: string; rating: string }>(
+      "/v1/analyses/" + analysisId + "/feedback",
+      { method: "POST", body: JSON.stringify({ rating, note }) },
+    ),
+  get: (analysisId: string) =>
+    request<{ id: string; rating: string; note: string | null } | null>(
+      "/v1/analyses/" + analysisId + "/feedback",
+    ),
 };
 
 // AI Health (live connectivity check)

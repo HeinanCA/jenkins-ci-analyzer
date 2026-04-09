@@ -14,6 +14,7 @@ import {
   jenkinsGet,
   jenkinsGetText,
 } from "../services/jenkins-client";
+import { logAudit } from "../services/audit";
 
 const MAX_NAME_LENGTH = 200;
 const MAX_URL_LENGTH = 2048;
@@ -207,6 +208,16 @@ export async function instanceRoutes(app: FastifyInstance) {
         createdAt: ciInstances.createdAt,
       });
 
+    await logAudit({
+      organizationId: orgId,
+      actorUserId: request.tigSession!.user.id,
+      actorEmail: request.tigSession!.user.email,
+      action: "instance.created",
+      targetType: "ci_instance",
+      targetId: created.id,
+      metadata: { name, baseUrl: normalizedUrl },
+    });
+
     return reply.status(201).send({ data: created, error: null });
   });
 
@@ -282,6 +293,19 @@ export async function instanceRoutes(app: FastifyInstance) {
         .send({ data: null, error: "Instance not found" });
     }
 
+    const changedFields = Object.keys(updates).filter(
+      (k) => k !== "credentials",
+    );
+    await logAudit({
+      organizationId: orgId,
+      actorUserId: request.tigSession!.user.id,
+      actorEmail: request.tigSession!.user.email,
+      action: "instance.updated",
+      targetType: "ci_instance",
+      targetId: id,
+      metadata: { fieldsChanged: changedFields },
+    });
+
     return { data: updated, error: null };
   });
 
@@ -299,13 +323,23 @@ export async function instanceRoutes(app: FastifyInstance) {
             eq(ciInstances.organizationId, orgId),
           ),
         )
-        .returning({ id: ciInstances.id });
+        .returning({ id: ciInstances.id, name: ciInstances.name });
 
       if (!deleted) {
         return reply
           .status(404)
           .send({ data: null, error: "Instance not found" });
       }
+
+      await logAudit({
+        organizationId: orgId,
+        actorUserId: request.tigSession!.user.id,
+        actorEmail: request.tigSession!.user.email,
+        action: "instance.deleted",
+        targetType: "ci_instance",
+        targetId: deleted.id,
+        metadata: { name: deleted.name },
+      });
 
       return { data: { id: deleted.id }, error: null };
     },

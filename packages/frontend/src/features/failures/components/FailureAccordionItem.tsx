@@ -115,22 +115,22 @@ export function FailureAccordionItem({
             <>
               <Divider color={colors.surfaceLight} />
               <Stack gap="xs">
-                <Text size="sm" c={colors.textMuted} fw={500}>
+                <Text size="sm" c={colors.textSecondary} fw={500}>
                   {group.builds.length - 1} earlier{" "}
                   {group.builds.length > 2 ? "builds" : "build"} also failed
                 </Text>
                 {group.builds.slice(1).map((older) => (
                   <Group key={older.buildId} gap="sm">
-                    <Text size="sm" c={colors.textTertiary}>
+                    <Text size="sm" c={colors.textSecondary} fw={500}>
                       #{older.buildNumber}
                     </Text>
-                    <Text size="sm" c={colors.textMuted}>
+                    <Text size="sm" c={colors.textTertiary}>
                       {new Date(older.startedAt).toLocaleString()}
                     </Text>
                     {(older.aiSummary as string | undefined) && (
                       <Text
                         size="sm"
-                        c={colors.textMuted}
+                        c={colors.textSecondary}
                         lineClamp={1}
                         style={{ flex: 1 }}
                       >

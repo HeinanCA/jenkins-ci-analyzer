@@ -15,8 +15,8 @@
   /* Dark scale */
   --mantine-color-dark-0: #EDEDEF;
   --mantine-color-dark-1: #B3B6C2;
-  --mantine-color-dark-2: #7D8291;
-  --mantine-color-dark-3: #555A6B;
+  --mantine-color-dark-2: #8B90A0;
+  --mantine-color-dark-3: #6B7082;
   --mantine-color-dark-4: #3A3E4C;
   --mantine-color-dark-5: #2C2F3A;
   --mantine-color-dark-6: #22252F;
@@ -26,8 +26,8 @@
 
   /* Text */
   --mantine-color-text: #EDEDEF;
-  --mantine-color-dimmed: #7D8291;
-  --mantine-color-placeholder: #555A6B;
+  --mantine-color-dimmed: #8B90A0;
+  --mantine-color-placeholder: #6B7082;
 
   /* Default component colors */
   --mantine-color-default-border: rgba(255, 255, 255, 0.10);
@@ -43,7 +43,7 @@
 }
 
 .mantine-Input-input::placeholder {
-  color: #555A6B !important;
+  color: #6B7082 !important;
 }
 
 .mantine-Input-input:focus,

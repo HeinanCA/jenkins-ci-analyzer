@@ -37,15 +37,15 @@ export function FailureDetail({ f }: Props) {
   const lineNumber = aiFixes?.lineNumber as number | undefined;
 
   return (
-    <Stack gap="sm">
+    <Stack gap="md">
       {aiRootCause && (
-        <Code block style={codeStyle}>
+        <Code block style={{ ...codeStyle, fontSize: 13, padding: 14 }}>
           {aiRootCause}
         </Code>
       )}
 
       {aiFixes?.failingTest && (
-        <Text size="xs" c={colors.textTertiary}>
+        <Text size="sm" c={colors.textTertiary}>
           Test:{" "}
           <Text span c={colors.textSecondary} fw={500}>
             {String(aiFixes.failingTest)}
@@ -63,7 +63,7 @@ export function FailureDetail({ f }: Props) {
       )}
 
       {aiFixes?.assertion && (
-        <Text size="xs" c={colors.textTertiary}>
+        <Text size="sm" c={colors.textTertiary}>
           Assertion:{" "}
           <Text span c={colors.textSecondary}>
             {String(aiFixes.assertion)}
@@ -72,25 +72,27 @@ export function FailureDetail({ f }: Props) {
       )}
 
       {fixes.length > 0 && (
-        <Stack gap="xs">
-          <Text size="xs" fw={600} c={colors.textSecondary}>
-            Fix:
+        <Stack gap="sm">
+          <Text size="sm" fw={600} c={colors.textSecondary}>
+            Suggested fix
           </Text>
           {firstFix && (
-            <Group gap="xs">
-              <Code style={{ ...codeStyle, fontSize: 11, flex: 1 }}>
+            <Group gap="sm">
+              <Code
+                style={{ ...codeStyle, fontSize: 12, flex: 1, padding: 10 }}
+              >
                 {firstFix}
               </Code>
               <CopyButton value={firstFix}>
                 {({ copied, copy }) => (
                   <Tooltip label={copied ? "Copied" : "Copy command"}>
                     <ActionIcon
-                      size="xs"
+                      size="sm"
                       variant="subtle"
                       color={copied ? "green" : "gray"}
                       onClick={copy}
                     >
-                      <Text size="xs">{copied ? "✓" : "⎘"}</Text>
+                      <Text size="sm">{copied ? "✓" : "⎘"}</Text>
                     </ActionIcon>
                   </Tooltip>
                 )}
@@ -99,7 +101,7 @@ export function FailureDetail({ f }: Props) {
           )}
           {fixes.length > 1 && (
             <List
-              size="xs"
+              size="sm"
               type="ordered"
               styles={{ item: { color: colors.textTertiary } }}
             >
@@ -112,37 +114,37 @@ export function FailureDetail({ f }: Props) {
       )}
 
       {!hasAi && primary && (
-        <Stack gap="xs">
-          <Text size="xs" c={colors.textSecondary}>
+        <Stack gap="sm">
+          <Text size="sm" c={colors.textSecondary}>
             {String(primary.description ?? "")}
           </Text>
           {primary.matchedLine && (
-            <Code block style={{ ...codeStyle, fontSize: 11 }}>
+            <Code block style={{ ...codeStyle, fontSize: 12 }}>
               {String(primary.matchedLine)}
             </Code>
           )}
         </Stack>
       )}
 
-      <Group gap="md" justify="space-between">
-        <Group gap="md">
+      <Group gap="md" justify="space-between" mt={4}>
+        <Group gap="lg">
           {noisePercent && noisePercent >= 30 && (
             <Text
-              size="xs"
+              size="sm"
               c={colors.textMuted}
               style={{ fontStyle: "italic" }}
             >
-              💡 {noisePercent}% noise{topNoise ? ` (${topNoise})` : ""}
+              {noisePercent}% log noise{topNoise ? ` — ${topNoise}` : ""}
             </Text>
           )}
           {jobUrl && (
             <Anchor
               href={`${jobUrl}${f.buildNumber}/console`}
               target="_blank"
-              size="xs"
+              size="sm"
               c={colors.textMuted}
             >
-              Jenkins ↗
+              View in Jenkins
             </Anchor>
           )}
         </Group>

@@ -53,73 +53,83 @@ export function FailureAccordionItem({
         }}
       />
       <Accordion.Control>
-        <Group
-          justify="space-between"
-          wrap="nowrap"
-          style={{ width: "100%", paddingRight: 8 }}
-        >
-          <Stack gap={4} style={{ flex: 1, minWidth: 0 }}>
-            <Group gap="xs">
-              <Text size="sm" fw={500} c={colors.text} truncate>
-                {group.jobName}
+        {/* Collapsed state: just the job name + one-line root cause.
+            Everything else (streak, triggered by, classification) lives
+            in the expanded detail. Keep it scannable. */}
+        <Stack gap={6} style={{ minWidth: 0 }}>
+          <Group gap={10} wrap="nowrap">
+            <Text size="md" fw={600} c={colors.text} truncate>
+              {group.jobName}
+            </Text>
+            {group.streak > 1 && (
+              <Badge
+                size="sm"
+                variant="light"
+                color="red"
+                style={{ flexShrink: 0 }}
+              >
+                {group.streak}x
+              </Badge>
+            )}
+          </Group>
+
+          {hasAi ? (
+            <Text size="sm" c={colors.textSecondary} lineClamp={1}>
+              {aiDisplay}
+            </Text>
+          ) : (
+            <Group gap={6}>
+              <Loader size={12} color={colors.textMuted} />
+              <Text size="sm" c={colors.textMuted}>
+                Analyzing...
               </Text>
-              {group.streak > 1 && (
-                <Badge size="xs" variant="filled" color="red">
-                  {group.streak}x failed
-                </Badge>
-              )}
             </Group>
-            {f.triggeredBy && (
-              <Text size="xs" c={colors.textTertiary}>
-                Triggered by {String(f.triggeredBy)}
-              </Text>
-            )}
-            {hasAi ? (
-              <Text size="xs" c={colors.text} fw={500} lineClamp={1}>
-                {aiDisplay}
-              </Text>
-            ) : (
-              <Group gap={4}>
-                <Loader size={10} color={colors.textMuted} />
-                <Text size="xs" c={colors.textMuted}>
-                  Analyzing...
-                </Text>
-              </Group>
-            )}
-          </Stack>
-          {f.classification && (
-            <Badge
-              size="xs"
-              variant="light"
-              color={f.classification === "infrastructure" ? "red" : "orange"}
-            >
-              {f.classification === "infrastructure" ? "Infra" : "Code"}
-            </Badge>
           )}
-        </Group>
+        </Stack>
       </Accordion.Control>
       <Accordion.Panel>
         <Stack gap="md">
+          {/* Secondary info that was previously crammed into the header */}
+          <Group gap="lg">
+            {f.classification && (
+              <Badge
+                size="sm"
+                variant="light"
+                color={f.classification === "infrastructure" ? "red" : "orange"}
+              >
+                {f.classification === "infrastructure"
+                  ? "Infrastructure"
+                  : "Code"}
+              </Badge>
+            )}
+            {f.triggeredBy && (
+              <Text size="sm" c={colors.textTertiary}>
+                Triggered by {String(f.triggeredBy)}
+              </Text>
+            )}
+          </Group>
+
           <FailureDetail f={f} />
+
           {group.builds.length > 1 && (
             <>
               <Divider color={colors.surfaceLight} />
               <Stack gap="xs">
-                <Text size="xs" c={colors.textMuted} fw={500}>
-                  Also failed: {group.builds.length - 1} earlier build
-                  {group.builds.length > 2 ? "s" : ""}
+                <Text size="sm" c={colors.textMuted} fw={500}>
+                  {group.builds.length - 1} earlier{" "}
+                  {group.builds.length > 2 ? "builds" : "build"} also failed
                 </Text>
                 {group.builds.slice(1).map((older) => (
-                  <Group key={older.buildId} gap="xs">
-                    <Text size="xs" c={colors.textTertiary}>
+                  <Group key={older.buildId} gap="sm">
+                    <Text size="sm" c={colors.textTertiary}>
                       #{older.buildNumber}
                     </Text>
-                    <Text size="xs" c={colors.textMuted}>
+                    <Text size="sm" c={colors.textMuted}>
                       {new Date(older.startedAt).toLocaleString()}
                     </Text>
                     {(older.aiSummary as string | undefined) && (
                       <Text
-                        size="xs"
+                        size="sm"
                         c={colors.textMuted}
                         lineClamp={1}
                         style={{ flex: 1 }}

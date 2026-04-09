@@ -2,17 +2,17 @@ import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Stack,
-  Title,
   Text,
   Accordion,
   Select,
   Card,
   Group,
   SegmentedControl,
+  Box,
 } from "@mantine/core";
 import { tigDashboard, tigTeams } from "../../api/tig-client";
 import { useAuthStore } from "../../store/auth-store";
-import { colors, cardStyle } from "../../theme/mantine-theme";
+import { colors, cardStyle, metricStyle } from "../../theme/mantine-theme";
 import { QueryError } from "../../shared/components/QueryError";
 import { LoadingState } from "../../shared/components/LoadingState";
 import { useHover } from "../../shared/hooks/use-hover";
@@ -24,7 +24,13 @@ import type { FailureEntry } from "./types";
 type Filter = "all" | "code" | "infrastructure";
 
 const FILTER_INPUT_STYLES = {
-  input: { backgroundColor: colors.surface, border: "none", minWidth: 130 },
+  input: {
+    backgroundColor: colors.surface,
+    border: `1px solid ${colors.border}`,
+    minWidth: 150,
+    height: 36,
+    fontSize: 13,
+  },
 };
 
 const ACCORDION_STYLES = {
@@ -34,8 +40,8 @@ const ACCORDION_STYLES = {
     boxShadow: "0 2px 8px rgba(0, 0, 0, 0.3)",
     overflow: "hidden" as const,
   },
-  control: { padding: "14px 16px" },
-  panel: { padding: "0 14px 14px" },
+  control: { padding: "18px 20px" },
+  panel: { padding: "0 20px 20px" },
 };
 
 function countByClassification(
@@ -118,34 +124,45 @@ export function FailuresPage() {
   const summary = summaryQuery.data;
 
   return (
-    <Stack gap={24}>
-      {/* Row 1: Title + failure count */}
-      <Stack gap={8}>
-        <Group gap="sm" align="baseline">
-          <Title order={2} c={colors.text}>
-            Failures
-          </Title>
-          {summary && (
-            <Group gap={4}>
-              <Text size="sm" c={colors.failure} fw={600}>
-                {summary.failing} failing
+    <Stack gap={36}>
+      {/* Hero header: big number + context */}
+      <Stack gap={4}>
+        {summary ? (
+          <>
+            <Group gap={12} align="baseline">
+              <Text
+                c={summary.failing > 0 ? colors.failure : colors.success}
+                fw={800}
+                style={{ ...metricStyle, fontSize: 40, lineHeight: 1 }}
+              >
+                {summary.failing}
               </Text>
-              <Text size="sm" c={colors.textTertiary}>
-                / {summary.total} total
+              <Text size="lg" c={colors.textSecondary} fw={500}>
+                {summary.failing === 1 ? "failure" : "failures"}
               </Text>
             </Group>
-          )}
-        </Group>
+            <Text size="sm" c={colors.textTertiary}>
+              across {summary.total} monitored{" "}
+              {summary.total === 1 ? "job" : "jobs"}
+            </Text>
+          </>
+        ) : (
+          <Text
+            c={colors.textSecondary}
+            fw={800}
+            style={{ ...metricStyle, fontSize: 40, lineHeight: 1 }}
+          >
+            Failures
+          </Text>
+        )}
+      </Stack>
 
-        {/* Row 2: Filters */}
-        <Group
-          gap="sm"
-          pb={12}
-          style={{ borderBottom: `1px solid ${colors.border}` }}
-        >
+      {/* Filters — visually grouped, comfortable sizing */}
+      <Box>
+        <Group gap="md" pb={16} mb={8}>
           {teamsData && teamsData.length > 0 && (
             <Select
-              size="xs"
+              size="sm"
               placeholder="All teams"
               clearable
               value={teamId}
@@ -156,7 +173,7 @@ export function FailuresPage() {
           )}
           {authorsData && authorsData.length > 0 && (
             <Select
-              size="xs"
+              size="sm"
               placeholder="All authors"
               clearable
               value={authorFilter}
@@ -166,7 +183,7 @@ export function FailuresPage() {
             />
           )}
           <SegmentedControl
-            size="xs"
+            size="sm"
             value={filter}
             onChange={(v) => setFilter(v as Filter)}
             data={[
@@ -174,15 +191,28 @@ export function FailuresPage() {
               { label: `Code (${codeJobs})`, value: "code" },
               { label: `Infra (${infraJobs})`, value: "infrastructure" },
             ]}
-            styles={{ root: { backgroundColor: colors.surface } }}
+            styles={{
+              root: {
+                backgroundColor: colors.surface,
+                border: `1px solid ${colors.border}`,
+              },
+            }}
           />
         </Group>
-      </Stack>
+        <Box
+          style={{
+            height: 1,
+            background: `linear-gradient(90deg, ${colors.border}, transparent)`,
+          }}
+        />
+      </Box>
 
       {grouped.length === 0 && (
-        <Card radius="md" style={cardStyle} p="xl">
-          <Text size="sm" c={colors.success} ta="center">
-            {filter === "all" ? "No recent failures" : `No ${filter} failures`}
+        <Card radius="md" style={cardStyle} p={40}>
+          <Text size="md" c={colors.success} ta="center">
+            {filter === "all"
+              ? "All clear. No recent failures."
+              : `No ${filter} failures right now.`}
           </Text>
         </Card>
       )}

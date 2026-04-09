@@ -35,17 +35,22 @@ export function FeedbackButtons({ analysisId }: Props) {
 
   useEffect(() => {
     let cancelled = false;
-    tigFeedback.get(analysisId).then((data) => {
-      if (cancelled || !data) return;
-      setState((prev) => ({
-        ...prev,
-        rating: data.rating as Rating,
-        note: data.note ?? "",
-      }));
-    }).catch(() => {
-      // Silently ignore — user just hasn't voted yet
-    });
-    return () => { cancelled = true; };
+    tigFeedback
+      .get(analysisId)
+      .then((data) => {
+        if (cancelled || !data) return;
+        setState((prev) => ({
+          ...prev,
+          rating: data.rating as Rating,
+          note: data.note ?? "",
+        }));
+      })
+      .catch(() => {
+        // Silently ignore — user just hasn't voted yet
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [analysisId]);
 
   const handleVote = useCallback(
@@ -72,7 +77,11 @@ export function FeedbackButtons({ analysisId }: Props) {
 
       try {
         if (newRating) {
-          await tigFeedback.submit(analysisId, newRating, state.note || undefined);
+          await tigFeedback.submit(
+            analysisId,
+            newRating,
+            state.note || undefined,
+          );
         } else {
           // Re-submit with current rating to effectively "unset" — but API requires a rating.
           // For now, treat clicking same button as a toggle: submit opposite then the original.
@@ -94,7 +103,11 @@ export function FeedbackButtons({ analysisId }: Props) {
     if (!state.rating) return;
     setState((prev) => ({ ...prev, submitting: true }));
     try {
-      await tigFeedback.submit(analysisId, state.rating, state.note || undefined);
+      await tigFeedback.submit(
+        analysisId,
+        state.rating,
+        state.note || undefined,
+      );
     } catch {
       // Note failed to save — not critical
     } finally {
@@ -106,39 +119,43 @@ export function FeedbackButtons({ analysisId }: Props) {
   const isNotHelpful = state.rating === "not_helpful";
 
   return (
-    <Group gap={6} align="center">
-      <Text size="xs" c={colors.textMuted}>
-        Was this helpful?
+    <Group gap={8} align="center">
+      <Text size="sm" c={colors.textMuted}>
+        Helpful?
       </Text>
       <Tooltip label="Helpful">
         <ActionIcon
-          size="xs"
+          size="sm"
           variant={isHelpful ? "filled" : "subtle"}
           color={isHelpful ? colors.success : "gray"}
           onClick={() => handleVote("helpful")}
           disabled={state.submitting}
           aria-label="Mark as helpful"
         >
-          <Text size="xs">&#128077;</Text>
+          <Text size="sm">&#128077;</Text>
         </ActionIcon>
       </Tooltip>
       <Tooltip label="Not helpful">
         <ActionIcon
-          size="xs"
+          size="sm"
           variant={isNotHelpful ? "filled" : "subtle"}
           color={isNotHelpful ? colors.failure : "gray"}
           onClick={() => handleVote("not_helpful")}
           disabled={state.submitting}
           aria-label="Mark as not helpful"
         >
-          <Text size="xs">&#128078;</Text>
+          <Text size="sm">&#128078;</Text>
         </ActionIcon>
       </Tooltip>
-      <Transition mounted={state.showNote} transition="slide-right" duration={200}>
+      <Transition
+        mounted={state.showNote}
+        transition="slide-right"
+        duration={200}
+      >
         {(styles) => (
           <TextInput
             style={styles}
-            size="xs"
+            size="sm"
             placeholder="What was wrong?"
             value={state.note}
             onChange={(e) =>
@@ -153,10 +170,10 @@ export function FeedbackButtons({ analysisId }: Props) {
                 backgroundColor: colors.surfaceLight,
                 borderColor: colors.border,
                 color: colors.text,
-                fontSize: 11,
-                height: 24,
-                minHeight: 24,
-                width: 160,
+                fontSize: 13,
+                height: 32,
+                minHeight: 32,
+                width: 200,
               },
             }}
           />

@@ -197,7 +197,7 @@ export function AppShellLayout() {
     <MantineAppShell
       navbar={{ width: 220, breakpoint: "sm" }}
       header={{ height: 56 }}
-      padding="md"
+      padding="xl"
       styles={{
         main: {
           background: colors.bgGradient,

@@ -17,6 +17,7 @@ import {
   tigAiCost,
   tigAiHealth,
   tigDashboard,
+  tigHealth,
   tigMe,
 } from "../../api/tig-client";
 import { colors } from "../../theme/mantine-theme";
@@ -39,6 +40,45 @@ interface NavItem {
 }
 
 import "../styles/animations.css";
+
+function HealthIndicator() {
+  const instanceId = useAuthStore((s) => s.instanceId);
+  const { data: h } = useQuery({
+    queryKey: ["health-current", instanceId],
+    queryFn: () => (instanceId ? tigHealth.current(instanceId) : null),
+    enabled: !!instanceId,
+    refetchInterval: 30_000,
+  });
+  if (!h) return null;
+  const color =
+    h.level === "healthy"
+      ? colors.success
+      : h.level === "degraded"
+        ? colors.warning
+        : colors.failure;
+  return (
+    <Tooltip
+      label={`${h.score}/100 · ${h.agentsOnline}/${h.agentsTotal} agents · ${h.queueDepth} queued${h.issues.length > 0 ? ` · ${h.issues[0]}` : ""}`}
+      w={300}
+      multiline
+    >
+      <Group gap={6} style={{ cursor: "default" }}>
+        <Box
+          style={{
+            width: 8,
+            height: 8,
+            borderRadius: "50%",
+            backgroundColor: color,
+            boxShadow: h.level !== "healthy" ? `0 0 6px ${color}80` : undefined,
+          }}
+        />
+        <Text size="xs" fw={600} c={color} tt="capitalize">
+          {h.level}
+        </Text>
+      </Group>
+    </Tooltip>
+  );
+}
 
 function FailureCount() {
   const instanceId = useAuthStore((s) => s.instanceId);
@@ -192,6 +232,7 @@ export function AppShellLayout() {
               by That Infrastructure Guy
             </Text>
           </Group>
+          <HealthIndicator />
           <Group gap="sm">
             <AiStatusBadge />
             {user && (

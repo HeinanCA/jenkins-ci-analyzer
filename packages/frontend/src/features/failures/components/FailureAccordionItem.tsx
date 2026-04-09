@@ -7,7 +7,6 @@ import {
   Loader,
   Stack,
   Text,
-  Tooltip,
 } from "@mantine/core";
 import { colors, statusGradient } from "../../../theme/mantine-theme";
 import { FailureDetail } from "./FailureDetail";
@@ -59,7 +58,7 @@ export function FailureAccordionItem({
           wrap="nowrap"
           style={{ width: "100%", paddingRight: 8 }}
         >
-          <Stack gap={2} style={{ flex: 1, minWidth: 0 }}>
+          <Stack gap={4} style={{ flex: 1, minWidth: 0 }}>
             <Group gap="xs">
               <Text size="sm" fw={500} c={colors.text} truncate>
                 {group.jobName}
@@ -88,32 +87,15 @@ export function FailureAccordionItem({
               </Group>
             )}
           </Stack>
-          <Group gap={4}>
-            {f.classification && (
-              <Badge
-                size="xs"
-                variant="light"
-                color={f.classification === "infrastructure" ? "red" : "orange"}
-              >
-                {f.classification === "infrastructure" ? "Infra" : "Code"}
-              </Badge>
-            )}
-            {hasAi ? (
-              <Badge size="xs" variant="light" color="orange">
-                AI
-              </Badge>
-            ) : (
-              <Tooltip
-                label="AI was offline. Classification may be inaccurate."
-                multiline
-                w={250}
-              >
-                <Badge size="xs" variant="light" color="gray">
-                  regex
-                </Badge>
-              </Tooltip>
-            )}
-          </Group>
+          {f.classification && (
+            <Badge
+              size="xs"
+              variant="light"
+              color={f.classification === "infrastructure" ? "red" : "orange"}
+            >
+              {f.classification === "infrastructure" ? "Infra" : "Code"}
+            </Badge>
+          )}
         </Group>
       </Accordion.Control>
       <Accordion.Panel>

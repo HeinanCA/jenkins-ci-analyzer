@@ -12,6 +12,7 @@ import { TrendsPage } from "./features/trends/TrendsPage";
 import { UsersPage } from "./features/admin/UsersPage";
 import { AppShellLayout } from "./shared/components/AppShell";
 import "@mantine/core/styles.css";
+import "./shared/styles/overrides.css";
 
 const queryClient = new QueryClient({
   defaultOptions: {

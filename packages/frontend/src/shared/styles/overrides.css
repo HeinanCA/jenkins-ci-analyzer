@@ -1,0 +1,149 @@
+/*
+ * Force Mantine dark-mode components to use PulsCI palette.
+ * Mantine's createTheme component overrides don't reliably apply
+ * in v7+ dark mode. CSS variables are the guaranteed path.
+ */
+
+:root[data-mantine-color-scheme="dark"] {
+  /* Core backgrounds */
+  --mantine-color-body: #0F1117;
+  --mantine-color-dark-filled: #181B25;
+  --mantine-color-dark-filled-hover: #1E2230;
+  --mantine-color-dark-light: rgba(255, 255, 255, 0.06);
+  --mantine-color-dark-light-hover: rgba(255, 255, 255, 0.10);
+
+  /* Dark scale */
+  --mantine-color-dark-0: #EDEDEF;
+  --mantine-color-dark-1: #B3B6C2;
+  --mantine-color-dark-2: #7D8291;
+  --mantine-color-dark-3: #555A6B;
+  --mantine-color-dark-4: #3A3E4C;
+  --mantine-color-dark-5: #2C2F3A;
+  --mantine-color-dark-6: #22252F;
+  --mantine-color-dark-7: #181B25;
+  --mantine-color-dark-8: #13151D;
+  --mantine-color-dark-9: #0F1117;
+
+  /* Text */
+  --mantine-color-text: #EDEDEF;
+  --mantine-color-dimmed: #7D8291;
+  --mantine-color-placeholder: #555A6B;
+
+  /* Default component colors */
+  --mantine-color-default-border: rgba(255, 255, 255, 0.10);
+  --mantine-color-default-color: #EDEDEF;
+  --mantine-color-default-hover: #22252F;
+}
+
+/* ─── Inputs (Select, TextInput, PasswordInput) ───────────── */
+.mantine-Input-input {
+  background-color: #181B25 !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+  color: #EDEDEF !important;
+}
+
+.mantine-Input-input::placeholder {
+  color: #555A6B !important;
+}
+
+.mantine-Input-input:focus,
+.mantine-Input-input:focus-within {
+  border-color: #F56740 !important;
+}
+
+/* ─── Select dropdown ─────────────────────────────────────── */
+.mantine-Select-dropdown,
+.mantine-Combobox-dropdown {
+  background-color: #181B25 !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+}
+
+.mantine-Combobox-option {
+  color: #EDEDEF !important;
+}
+
+.mantine-Combobox-option[data-combobox-selected] {
+  background-color: rgba(245, 103, 64, 0.15) !important;
+}
+
+.mantine-Combobox-option:hover {
+  background-color: #22252F !important;
+}
+
+/* ─── SegmentedControl ────────────────────────────────────── */
+.mantine-SegmentedControl-root {
+  background-color: #181B25 !important;
+  border: 1px solid rgba(255, 255, 255, 0.10) !important;
+}
+
+.mantine-SegmentedControl-indicator {
+  background-color: #F56740 !important;
+}
+
+.mantine-SegmentedControl-label {
+  color: #B3B6C2 !important;
+}
+
+.mantine-SegmentedControl-label[data-active] {
+  color: #fff !important;
+}
+
+/* ─── Accordion ───────────────────────────────────────────── */
+.mantine-Accordion-item {
+  background-color: #181B25 !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+}
+
+.mantine-Accordion-control:hover {
+  background-color: #1E2230 !important;
+}
+
+.mantine-Accordion-chevron {
+  color: #7D8291 !important;
+}
+
+/* ─── Modal ───────────────────────────────────────────────── */
+.mantine-Modal-header {
+  background-color: #181B25 !important;
+}
+
+.mantine-Modal-body {
+  background-color: #181B25 !important;
+}
+
+.mantine-Modal-title {
+  color: #EDEDEF !important;
+}
+
+/* ─── Tooltip ─────────────────────────────────────────────── */
+.mantine-Tooltip-tooltip {
+  background-color: #22252F !important;
+  color: #EDEDEF !important;
+  border: 1px solid rgba(255, 255, 255, 0.10) !important;
+}
+
+/* ─── Card ────────────────────────────────────────────────── */
+.mantine-Card-root {
+  background-color: #181B25 !important;
+}
+
+/* ─── Checkbox ────────────────────────────────────────────── */
+.mantine-Checkbox-input {
+  background-color: #14161E !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+}
+
+/* ─── Divider ─────────────────────────────────────────────── */
+.mantine-Divider-root {
+  border-color: rgba(255, 255, 255, 0.10) !important;
+}
+
+/* ─── ScrollArea thumb ────────────────────────────────────── */
+.mantine-ScrollArea-thumb {
+  background-color: #555A6B !important;
+}
+
+/* ─── Alert ───────────────────────────────────────────────── */
+.mantine-Alert-root {
+  border-color: rgba(255, 255, 255, 0.10) !important;
+}

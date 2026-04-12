@@ -70,6 +70,8 @@ function HealthIndicator() {
             borderRadius: "50%",
             backgroundColor: color,
             boxShadow: h.level !== "healthy" ? `0 0 6px ${color}80` : undefined,
+            animation:
+              h.level === "healthy" ? "health-pulse 3s infinite" : undefined,
           }}
         />
         <Text size="xs" fw={600} c={color} tt="capitalize">
@@ -204,14 +206,12 @@ export function AppShellLayout() {
           minHeight: "100vh",
         },
         header: {
-          backgroundColor: "rgba(15, 17, 23, 0.92)",
+          backgroundColor: "#1F1F1F",
           borderBottom: `1px solid ${colors.border}`,
-          backdropFilter: "blur(14px)",
         },
         navbar: {
-          backgroundColor: "rgba(15, 17, 23, 0.95)",
+          backgroundColor: "#1F1F1F",
           borderRight: `1px solid ${colors.border}`,
-          backdropFilter: "blur(14px)",
         },
       }}
     >

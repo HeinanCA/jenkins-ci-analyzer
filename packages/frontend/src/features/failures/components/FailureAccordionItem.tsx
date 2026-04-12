@@ -8,7 +8,7 @@ import {
   Stack,
   Text,
 } from "@mantine/core";
-import { colors, statusGradient } from "../../../theme/mantine-theme";
+import { colors } from "../../../theme/mantine-theme";
 import { FailureDetail } from "./FailureDetail";
 import type { GroupedFailure } from "../types";
 
@@ -37,21 +37,14 @@ export function FailureAccordionItem({
       value={group.jobFullPath}
       {...onHover}
       style={{
-        transition: "background-color 0.15s ease",
+        transition:
+          "background-color 0.15s, border-color 0.15s, transform 0.15s",
         backgroundColor: isHovered ? colors.surfaceHover : undefined,
+        borderLeft: `3px solid ${f.classification === "infrastructure" ? colors.failure : colors.accent}`,
+        transform: isHovered ? "translateX(2px)" : undefined,
+        animation: "fadeUp 0.3s ease both",
       }}
     >
-      <Box
-        style={{
-          height: 3,
-          borderRadius: "3px 3px 0 0",
-          background: statusGradient(
-            f.classification === "infrastructure"
-              ? colors.failure
-              : colors.accent,
-          ),
-        }}
-      />
       <Accordion.Control>
         {/* Collapsed state: just the job name + one-line root cause.
             Everything else (streak, triggered by, classification) lives
@@ -62,14 +55,31 @@ export function FailureAccordionItem({
               {group.jobName}
             </Text>
             {group.streak > 1 && (
-              <Badge
-                size="sm"
-                variant="light"
-                color="red"
-                style={{ flexShrink: 0 }}
-              >
-                {group.streak}x
-              </Badge>
+              <Group gap={3} style={{ flexShrink: 0 }}>
+                {Array.from({ length: Math.min(group.streak, 7) }, (_, i) => (
+                  <Box
+                    key={i}
+                    style={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: "50%",
+                      backgroundColor: colors.failure,
+                      opacity: 0.4 + (i / Math.min(group.streak, 7)) * 0.6,
+                    }}
+                  />
+                ))}
+                <Text
+                  size="xs"
+                  fw={600}
+                  c={colors.failure}
+                  style={{
+                    fontFamily: "ui-monospace, monospace",
+                    marginLeft: 2,
+                  }}
+                >
+                  {group.streak}x
+                </Text>
+              </Group>
             )}
           </Group>
 

@@ -1,149 +1,97 @@
 /*
- * Force Mantine dark-mode components to use PulsCI palette.
- * Mantine's createTheme component overrides don't reliably apply
- * in v7+ dark mode. CSS variables are the guaranteed path.
+ * PulsCI — Mantine dark mode overrides
+ * Jenkins-brightness palette. Readable on any monitor.
  */
 
 :root[data-mantine-color-scheme="dark"] {
-  /* Core backgrounds */
-  --mantine-color-body: #0F1117;
-  --mantine-color-dark-filled: #181B25;
-  --mantine-color-dark-filled-hover: #1E2230;
-  --mantine-color-dark-light: rgba(255, 255, 255, 0.06);
-  --mantine-color-dark-light-hover: rgba(255, 255, 255, 0.10);
+  --mantine-color-body: #2B2B2B;
+  --mantine-color-dark-0: #FFFFFF;
+  --mantine-color-dark-1: #CCCCCC;
+  --mantine-color-dark-2: #999999;
+  --mantine-color-dark-3: #777777;
+  --mantine-color-dark-4: #555555;
+  --mantine-color-dark-5: #444444;
+  --mantine-color-dark-6: #3A3A3A;
+  --mantine-color-dark-7: #333333;
+  --mantine-color-dark-8: #2B2B2B;
+  --mantine-color-dark-9: #1F1F1F;
 
-  /* Dark scale */
-  --mantine-color-dark-0: #EDEDEF;
-  --mantine-color-dark-1: #B3B6C2;
-  --mantine-color-dark-2: #8B90A0;
-  --mantine-color-dark-3: #6B7082;
-  --mantine-color-dark-4: #3A3E4C;
-  --mantine-color-dark-5: #2C2F3A;
-  --mantine-color-dark-6: #22252F;
-  --mantine-color-dark-7: #181B25;
-  --mantine-color-dark-8: #13151D;
-  --mantine-color-dark-9: #0F1117;
-
-  /* Text */
-  --mantine-color-text: #EDEDEF;
-  --mantine-color-dimmed: #8B90A0;
-  --mantine-color-placeholder: #6B7082;
-
-  /* Default component colors */
-  --mantine-color-default-border: rgba(255, 255, 255, 0.10);
-  --mantine-color-default-color: #EDEDEF;
-  --mantine-color-default-hover: #22252F;
+  --mantine-color-text: #FFFFFF;
+  --mantine-color-dimmed: #999999;
+  --mantine-color-placeholder: #777777;
+  --mantine-color-default-border: #444444;
+  --mantine-color-default-color: #FFFFFF;
+  --mantine-color-default-hover: #3A3A3A;
 }
 
-/* ─── Inputs (Select, TextInput, PasswordInput) ───────────── */
+/* Inputs */
 .mantine-Input-input {
-  background-color: #181B25 !important;
-  border-color: rgba(255, 255, 255, 0.10) !important;
-  color: #EDEDEF !important;
+  background-color: #333333 !important;
+  border-color: #444444 !important;
+  color: #FFFFFF !important;
 }
-
-.mantine-Input-input::placeholder {
-  color: #6B7082 !important;
-}
-
+.mantine-Input-input::placeholder { color: #777777 !important; }
 .mantine-Input-input:focus,
-.mantine-Input-input:focus-within {
-  border-color: #F56740 !important;
-}
+.mantine-Input-input:focus-within { border-color: #F56740 !important; }
 
-/* ─── Select dropdown ─────────────────────────────────────── */
+/* Select dropdown */
 .mantine-Select-dropdown,
 .mantine-Combobox-dropdown {
-  background-color: #181B25 !important;
-  border-color: rgba(255, 255, 255, 0.10) !important;
+  background-color: #333333 !important;
+  border-color: #444444 !important;
 }
+.mantine-Combobox-option { color: #FFFFFF !important; }
+.mantine-Combobox-option[data-combobox-selected] { background-color: rgba(245, 103, 64, 0.15) !important; }
+.mantine-Combobox-option:hover { background-color: #3A3A3A !important; }
 
-.mantine-Combobox-option {
-  color: #EDEDEF !important;
-}
-
-.mantine-Combobox-option[data-combobox-selected] {
-  background-color: rgba(245, 103, 64, 0.15) !important;
-}
-
-.mantine-Combobox-option:hover {
-  background-color: #22252F !important;
-}
-
-/* ─── SegmentedControl ────────────────────────────────────── */
+/* SegmentedControl */
 .mantine-SegmentedControl-root {
-  background-color: #181B25 !important;
-  border: 1px solid rgba(255, 255, 255, 0.10) !important;
+  background-color: #333333 !important;
+  border: 1px solid #444444 !important;
 }
-
 .mantine-SegmentedControl-indicator {
   background-color: #F56740 !important;
+  box-shadow: 0 0 12px rgba(245, 103, 64, 0.4) !important;
 }
+.mantine-SegmentedControl-label { color: #CCCCCC !important; }
+.mantine-SegmentedControl-label[data-active] { color: #fff !important; }
 
-.mantine-SegmentedControl-label {
-  color: #B3B6C2 !important;
-}
-
-.mantine-SegmentedControl-label[data-active] {
-  color: #fff !important;
-}
-
-/* ─── Accordion ───────────────────────────────────────────── */
+/* Accordion */
 .mantine-Accordion-item {
-  background-color: #181B25 !important;
-  border-color: rgba(255, 255, 255, 0.10) !important;
+  background-color: #333333 !important;
+  border-color: #444444 !important;
 }
+.mantine-Accordion-control:hover { background-color: #3A3A3A !important; }
+.mantine-Accordion-chevron { color: #999999 !important; }
 
-.mantine-Accordion-control:hover {
-  background-color: #1E2230 !important;
-}
+/* Modal */
+.mantine-Modal-header,
+.mantine-Modal-body { background-color: #333333 !important; }
+.mantine-Modal-title { color: #FFFFFF !important; }
 
-.mantine-Accordion-chevron {
-  color: #7D8291 !important;
-}
-
-/* ─── Modal ───────────────────────────────────────────────── */
-.mantine-Modal-header {
-  background-color: #181B25 !important;
-}
-
-.mantine-Modal-body {
-  background-color: #181B25 !important;
-}
-
-.mantine-Modal-title {
-  color: #EDEDEF !important;
-}
-
-/* ─── Tooltip ─────────────────────────────────────────────── */
+/* Tooltip */
 .mantine-Tooltip-tooltip {
-  background-color: #22252F !important;
-  color: #EDEDEF !important;
-  border: 1px solid rgba(255, 255, 255, 0.10) !important;
+  background-color: #3A3A3A !important;
+  color: #FFFFFF !important;
+  border: 1px solid #444444 !important;
 }
 
-/* ─── Card ────────────────────────────────────────────────── */
-.mantine-Card-root {
-  background-color: #181B25 !important;
-}
+/* Card */
+.mantine-Card-root { background-color: #333333 !important; }
 
-/* ─── Checkbox ────────────────────────────────────────────── */
+/* Checkbox */
 .mantine-Checkbox-input {
-  background-color: #14161E !important;
-  border-color: rgba(255, 255, 255, 0.10) !important;
+  background-color: #2B2B2B !important;
+  border-color: #444444 !important;
 }
 
-/* ─── Divider ─────────────────────────────────────────────── */
-.mantine-Divider-root {
-  border-color: rgba(255, 255, 255, 0.10) !important;
-}
+/* Divider */
+.mantine-Divider-root { border-color: #444444 !important; }
 
-/* ─── ScrollArea thumb ────────────────────────────────────── */
-.mantine-ScrollArea-thumb {
-  background-color: #555A6B !important;
-}
+/* ScrollArea */
+.mantine-ScrollArea-thumb { background-color: #555555 !important; }
 
-/* ─── Alert ───────────────────────────────────────────────── */
-.mantine-Alert-root {
-  border-color: rgba(255, 255, 255, 0.10) !important;
-}
+/* Active scale on all clickable elements */
+.mantine-Button-root:active,
+.mantine-ActionIcon-root:active,
+.mantine-SegmentedControl-label:active { transform: scale(0.95); }

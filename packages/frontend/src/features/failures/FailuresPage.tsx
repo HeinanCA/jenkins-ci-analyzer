@@ -133,7 +133,16 @@ export function FailuresPage() {
               <Text
                 c={summary.failing > 0 ? colors.failure : colors.success}
                 fw={800}
-                style={{ ...metricStyle, fontSize: 40, lineHeight: 1 }}
+                style={{
+                  ...metricStyle,
+                  fontSize: 48,
+                  lineHeight: 1,
+                  textShadow:
+                    summary.failing > 0
+                      ? "0 0 40px rgba(248, 113, 113, 0.3), 0 0 80px rgba(248, 113, 113, 0.1)"
+                      : undefined,
+                  animation: "countUp 0.5s ease",
+                }}
               >
                 {summary.failing}
               </Text>

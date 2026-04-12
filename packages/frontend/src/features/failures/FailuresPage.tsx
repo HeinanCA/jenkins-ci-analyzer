@@ -220,8 +220,8 @@ export function FailuresPage() {
         <Card radius="md" style={cardStyle} p={40}>
           <Text size="md" c={colors.success} ta="center">
             {filter === "all"
-              ? "All clear. No recent failures."
-              : `No ${filter} failures right now.`}
+              ? "No failures in the last 3 days."
+              : `No ${filter} failures in the last 3 days.`}
           </Text>
         </Card>
       )}

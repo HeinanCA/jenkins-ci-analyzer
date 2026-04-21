@@ -11,6 +11,28 @@ interface QueueDetailProps {
   readonly instanceId: string;
 }
 
+function diagnoseStuck(reason: string): string {
+  const r = reason.toLowerCase();
+  if (r.includes("offline"))
+    return "Agent is offline — no executor available for this build.";
+  if (r.includes("no nodes with the label") || r.includes("there are no nodes"))
+    return "No agent has the required label. Check your node configuration.";
+  if (r.includes("all nodes") && r.includes("offline"))
+    return "All agents with the required label are offline.";
+  if (r.includes("waiting for next available executor"))
+    return "All executors are busy. Build is waiting for a free slot.";
+  if (
+    r.includes("already in progress") ||
+    r.includes("waiting for it to finish")
+  )
+    return "Blocked by a concurrency limit — another build must finish first.";
+  if (r.includes("upstream") || r.includes("downstream"))
+    return "Blocked by an upstream/downstream build dependency.";
+  if (r.includes("throttl"))
+    return "Throttled — too many concurrent builds of this job.";
+  return "Jenkins marked this build as stuck. Check agent availability.";
+}
+
 /**
  * Live build queue showing waiting jobs, reasons, and stuck/blocked badges.
  * Scan-triggered items are suppressed but counted in a spike banner.
@@ -135,15 +157,20 @@ export function QueueDetail({ instanceId }: QueueDetailProps) {
                 </Group>
               </Group>
 
-              {/* Full reason on its own line */}
+              {/* Reason — highlighted red + diagnosis for stuck items */}
               <Text
                 size="xs"
-                c={colors.textSecondary}
+                c={item.stuck ? colors.failure : colors.textSecondary}
                 mt={2}
                 style={{ fontStyle: "italic" }}
               >
                 {item.reason}
               </Text>
+              {item.stuck && (
+                <Text size="xs" c={colors.warning} mt={2} fw={500}>
+                  {diagnoseStuck(item.reason)}
+                </Text>
+              )}
             </Box>
           ))}
         </Stack>

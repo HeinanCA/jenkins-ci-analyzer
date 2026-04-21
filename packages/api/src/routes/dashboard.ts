@@ -202,7 +202,13 @@ export async function dashboardRoutes(app: FastifyInstance) {
 
     const mineFilter =
       scope === "mine" && jenkinsUserIds.length > 0
-        ? sql`(${builds.triggeredBy} = ANY(${jenkinsUserIds}) OR ${builds.culprits} && ${jenkinsUserIds})`
+        ? sql`(${builds.triggeredBy} = ANY(ARRAY[${sql.join(
+            jenkinsUserIds.map((id) => sql`${id}`),
+            sql`, `,
+          )}]::text[]) OR ${builds.culprits} && ARRAY[${sql.join(
+            jenkinsUserIds.map((id) => sql`${id}`),
+            sql`, `,
+          )}]::text[])`
         : undefined;
 
     // Step 1: find the distinct job ids that had at least one FAILURE/UNSTABLE

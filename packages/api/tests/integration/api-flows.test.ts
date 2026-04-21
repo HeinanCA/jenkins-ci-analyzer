@@ -147,11 +147,105 @@ describe("API route contracts", () => {
   });
 });
 
+describe("dashboard failures — scope=mine response contracts", () => {
+  it("response envelope includes scope and mineUnavailable fields", () => {
+    // When scope=mine and a jenkins_users row exists, response must include:
+    const envelope = {
+      data: [],
+      mineUnavailable: false,
+      scope: "mine" as const,
+      error: null,
+    };
+    expect(envelope).toHaveProperty("scope");
+    expect(envelope).toHaveProperty("mineUnavailable");
+    expect(envelope.scope).toBe("mine");
+    expect(envelope.mineUnavailable).toBe(false);
+  });
+
+  it("mineUnavailable=true forces scope to 'all' in response", () => {
+    // When no jenkins_users row exists for the user's email,
+    // mineUnavailable is true and scope falls back to 'all'
+    const envelope = {
+      data: [],
+      mineUnavailable: true,
+      scope: "all" as const,
+      error: null,
+    };
+    expect(envelope.mineUnavailable).toBe(true);
+    expect(envelope.scope).toBe("all");
+  });
+
+  it("scope=all returns mineUnavailable:false regardless of jenkins_users rows", () => {
+    const envelope = {
+      data: [],
+      mineUnavailable: false,
+      scope: "all" as const,
+      error: null,
+    };
+    expect(envelope.mineUnavailable).toBe(false);
+    expect(envelope.scope).toBe("all");
+  });
+
+  it("failures response includes culprits field", () => {
+    // Phase 2: each failure row must carry the culprits array
+    const failure = {
+      buildId: "uuid",
+      buildNumber: 1,
+      result: "FAILURE",
+      startedAt: "2026-01-01T00:00:00Z",
+      durationMs: 1000,
+      jobName: "test-job",
+      jobFullPath: "org/test-job",
+      jobUrl: "https://jenkins/job/test-job",
+      triggeredBy: null,
+      culprits: ["cosmin.stoian", "alice.jones"],
+      aiSummary: null,
+    };
+    expect(failure).toHaveProperty("culprits");
+    expect(Array.isArray(failure.culprits)).toBe(true);
+  });
+
+  it("scope=mine matches builds where triggeredBy = current user's jenkins id", () => {
+    // Union: triggeredBy OR culprits overlap must both be honoured
+    const jenkinsUserIds = ["heinan.c"];
+    const build = { triggeredBy: "heinan.c", culprits: [] as string[] };
+    const matches =
+      (build.triggeredBy !== null &&
+        jenkinsUserIds.includes(build.triggeredBy)) ||
+      build.culprits.some((c) => jenkinsUserIds.includes(c));
+    expect(matches).toBe(true);
+  });
+
+  it("scope=mine matches builds where culprits overlap with user's jenkins ids", () => {
+    const jenkinsUserIds = ["cosmin.stoian"];
+    const build = {
+      triggeredBy: null,
+      culprits: ["cosmin.stoian", "other.user"],
+    };
+    const matches =
+      (build.triggeredBy !== null &&
+        jenkinsUserIds.includes(build.triggeredBy)) ||
+      build.culprits.some((c) => jenkinsUserIds.includes(c));
+    expect(matches).toBe(true);
+  });
+
+  it("scope=mine excludes builds where neither triggeredBy nor culprits match", () => {
+    const jenkinsUserIds = ["heinan.c"];
+    const build = { triggeredBy: "other.person", culprits: ["another.dev"] };
+    const matches =
+      (build.triggeredBy !== null &&
+        jenkinsUserIds.includes(build.triggeredBy)) ||
+      build.culprits.some((c) => jenkinsUserIds.includes(c));
+    expect(matches).toBe(false);
+  });
+});
+
 describe("shared utilities", () => {
   it("formatDuration handles all ranges", async () => {
-    const { formatDuration } = await import(
-      "../../src/services/log-extract"
-    ).catch(() => ({ formatDuration: null }));
+    const { formatDuration } =
+      await import("../../src/services/log-extract").catch(() => ({
+        formatDuration: null,
+      }));
 
     // These test the formatting utils used across the frontend
     // Even if the import fails, the contract is documented

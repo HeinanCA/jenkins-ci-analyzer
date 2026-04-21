@@ -5,6 +5,7 @@ import { syncBuilds } from "./jobs/sync-builds";
 import { analyzeBuild } from "./jobs/analyze-build";
 import { snapshotHealth } from "./jobs/snapshot-health";
 import { checkAiHealth } from "./jobs/check-ai-health";
+import { backfillJenkinsUsers } from "./jobs/backfill-jenkins-users";
 
 const connectionString =
   process.env["DATABASE_URL"] ?? "postgres://tig:tig@localhost:5432/tig";
@@ -38,6 +39,7 @@ const taskList: TaskList = {
   schedule_crawls: scheduleCrawls,
   snapshot_health: snapshotHealth,
   check_ai_health: checkAiHealth,
+  backfill_jenkins_users: backfillJenkinsUsers,
 };
 
 async function main() {

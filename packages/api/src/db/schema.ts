@@ -11,6 +11,7 @@ import {
   primaryKey,
   index,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 // ─── better-auth managed tables ─────────────────────────────────
 
@@ -207,6 +208,7 @@ export const builds = pgTable(
     gitSha: text("git_sha"),
     gitRemoteUrl: text("git_remote_url"),
     triggeredBy: text("triggered_by"),
+    culprits: text("culprits").array().notNull().default([]),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -392,6 +394,32 @@ export const auditEvents = pgTable(
   (table) => [
     index("audit_events_org_id_idx").on(table.organizationId),
     index("audit_events_created_at_idx").on(table.createdAt),
+  ],
+);
+
+export const jenkinsUsers = pgTable(
+  "jenkins_users",
+  {
+    ciInstanceId: uuid("ci_instance_id")
+      .references(() => ciInstances.id)
+      .notNull(),
+    jenkinsUserId: text("jenkins_user_id").notNull(),
+    email: text("email"),
+    displayName: text("display_name"),
+    organizationId: uuid("organization_id")
+      .references(() => organizations.id)
+      .notNull(),
+    fetchedAt: timestamp("fetched_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.ciInstanceId, table.jenkinsUserId] }),
+    index("jenkins_users_org_email_idx").on(
+      table.organizationId,
+      sql`lower(${table.email})`,
+    ),
+    index("jenkins_users_org_id_idx").on(table.organizationId),
   ],
 );
 

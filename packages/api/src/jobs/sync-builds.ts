@@ -7,11 +7,62 @@ import {
   type EncryptedCredentials,
 } from "../services/credential-vault";
 import { jenkinsGet } from "../services/jenkins-client";
+import {
+  isCacheFresh,
+  fetchAndCacheUser,
+} from "../services/jenkins-user-cache";
 import Bottleneck from "bottleneck";
 
 interface JenkinsBuildCause {
+  readonly _class?: string;
   readonly userName?: string;
   readonly shortDescription?: string;
+}
+
+interface JenkinsCulprit {
+  readonly absoluteUrl?: string;
+  readonly fullName?: string;
+}
+
+/**
+ * Extract the Jenkins userId from an absoluteUrl like
+ * "https://jenkins.example.com/user/cosmin.stoian" → "cosmin.stoian"
+ *
+ * Handles trailing slashes and percent-encoded characters.
+ * Returns null for any input that doesn't contain a /user/ segment.
+ */
+export function extractUserIdFromUrl(
+  absoluteUrl: string | undefined,
+): string | null {
+  if (!absoluteUrl) return null;
+  const match = absoluteUrl.match(/\/user\/([^/]+)\/?$/);
+  if (!match) return null;
+  const raw = match[1];
+  if (!raw) return null;
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
+}
+
+const SCAN_CAUSE_CLASSES = new Set([
+  "jenkins.branch.BranchIndexingCause",
+  "jenkins.branch.BranchEventCause",
+]);
+
+const SCAN_CAUSE_DESCRIPTIONS = ["Branch indexing", "Branch event"];
+
+export function isScanTriggered(causes: readonly JenkinsBuildCause[]): boolean {
+  if (causes.length === 0) return false;
+  const primary = causes[0];
+  if (primary._class && SCAN_CAUSE_CLASSES.has(primary._class)) return true;
+  if (
+    primary.shortDescription &&
+    SCAN_CAUSE_DESCRIPTIONS.some((d) => primary.shortDescription!.startsWith(d))
+  )
+    return true;
+  return false;
 }
 
 interface JenkinsBuildAction {
@@ -25,6 +76,7 @@ interface JenkinsBuildEntry {
   readonly duration: number;
   readonly estimatedDuration: number;
   readonly actions?: readonly JenkinsBuildAction[];
+  readonly culprits?: readonly JenkinsCulprit[];
 }
 
 interface JenkinsBuildHistoryResponse {
@@ -91,7 +143,7 @@ export const syncBuilds: Task = async (payload, helpers) => {
   for (const job of activeJobs) {
     try {
       const jobUrl = jobPathToJenkinsUrl(instance.baseUrl, job.fullPath);
-      const url = `${jobUrl}/api/json?tree=builds[number,result,timestamp,duration,estimatedDuration,actions[causes[userName,shortDescription]]]{0,10}`;
+      const url = `${jobUrl}/api/json?tree=builds[number,result,timestamp,duration,estimatedDuration,actions[causes[_class,userName,shortDescription]],culprits[absoluteUrl,fullName]]{0,10}`;
 
       const data = await limiter.schedule(() =>
         jenkinsGet<JenkinsBuildHistoryResponse>(url, credentials),
@@ -99,9 +151,19 @@ export const syncBuilds: Task = async (payload, helpers) => {
 
       if (!data.builds || data.builds.length === 0) continue;
 
+      // Collect distinct triggeredBy userIds from this batch
+      const triggeredByUsers = new Set<string>();
+
       for (const build of data.builds) {
         const causes = build.actions?.find((a) => a.causes)?.causes ?? [];
+
+        if (isScanTriggered(causes)) continue;
+
         const triggeredBy = causes[0]?.userName ?? null;
+
+        const culpritUserIds = (build.culprits ?? [])
+          .map((c) => extractUserIdFromUrl(c.absoluteUrl))
+          .filter((id): id is string => id !== null);
 
         await db
           .insert(builds)
@@ -114,6 +176,7 @@ export const syncBuilds: Task = async (payload, helpers) => {
             durationMs: build.duration,
             estimatedDurationMs: build.estimatedDuration,
             triggeredBy,
+            culprits: culpritUserIds,
           })
           .onConflictDoUpdate({
             target: [builds.jobId, builds.buildNumber],
@@ -121,8 +184,44 @@ export const syncBuilds: Task = async (payload, helpers) => {
               result: build.result,
               durationMs: build.duration,
               triggeredBy,
+              culprits: culpritUserIds,
             },
           });
+
+        if (triggeredBy) {
+          triggeredByUsers.add(triggeredBy);
+        }
+
+        for (const culpritId of culpritUserIds) {
+          triggeredByUsers.add(culpritId);
+        }
+      }
+
+      // Lazy-cache Jenkins user profiles for triggeredBy users
+      for (const userId of triggeredByUsers) {
+        try {
+          const fresh = await isCacheFresh(db, instanceId, userId);
+          if (!fresh) {
+            await limiter.schedule(() =>
+              fetchAndCacheUser(
+                {
+                  db,
+                  baseUrl: instance.baseUrl,
+                  credentials,
+                  ciInstanceId: instanceId,
+                  organizationId,
+                  logger: helpers.logger,
+                },
+                userId,
+              ),
+            );
+          }
+        } catch {
+          // Non-fatal: user cache miss should not fail build sync
+          helpers.logger.warn(
+            `Failed to cache Jenkins user "${userId}" — skipping`,
+          );
+        }
       }
 
       synced++;

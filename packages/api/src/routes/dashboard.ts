@@ -10,6 +10,7 @@ import {
   teams,
   analysisFeedback,
   users,
+  jenkinsUsers,
 } from "../db/schema";
 import { jobMatchesTeam } from "./teams";
 import { requireAuth } from "../middleware/auth";
@@ -121,14 +122,18 @@ export async function dashboardRoutes(app: FastifyInstance) {
       instance_id?: string;
       team_id?: string;
       author?: string;
+      scope?: string;
       limit?: string;
       days?: string;
     };
   }>("/api/v1/dashboard/failures", async (request) => {
     const orgId = request.tigSession!.org.id;
+    const userEmail = request.tigSession!.user.email;
     const instanceId = request.query.instance_id;
     const teamId = request.query.team_id;
     const author = request.query.author;
+    const rawScope = request.query.scope;
+    const scope: "mine" | "all" = rawScope === "all" ? "all" : "mine";
     const rawLimit = Number(request.query.limit ?? 50);
     const limit = Number.isFinite(rawLimit)
       ? Math.max(1, Math.min(rawLimit, 100))
@@ -152,6 +157,31 @@ export async function dashboardRoutes(app: FastifyInstance) {
       }
     }
 
+    // Resolve Jenkins userIds for current user (used for scope=mine)
+    let jenkinsUserIds: string[] = [];
+    let mineUnavailable = false;
+
+    if (scope === "mine") {
+      const rows = await db
+        .select({ jenkinsUserId: jenkinsUsers.jenkinsUserId })
+        .from(jenkinsUsers)
+        .where(
+          and(
+            eq(jenkinsUsers.organizationId, orgId),
+            sql`lower(${jenkinsUsers.email}) = lower(${userEmail})`,
+          ),
+        );
+      jenkinsUserIds = rows.map((r) => r.jenkinsUserId);
+      if (jenkinsUserIds.length === 0) {
+        mineUnavailable = true;
+      }
+    }
+
+    const mineFilter =
+      scope === "mine" && jenkinsUserIds.length > 0
+        ? sql`(${builds.triggeredBy} = ANY(${jenkinsUserIds}) OR ${builds.culprits} && ${jenkinsUserIds})`
+        : undefined;
+
     const failures = await db
       .select({
         buildId: builds.id,
@@ -174,6 +204,7 @@ export async function dashboardRoutes(app: FastifyInstance) {
         logNoisePercent: buildAnalyses.logNoisePercent,
         logTopNoise: buildAnalyses.logTopNoise,
         triggeredBy: builds.triggeredBy,
+        culprits: builds.culprits,
       })
       .from(builds)
       .innerJoin(jobs, eq(jobs.id, builds.jobId))
@@ -183,6 +214,7 @@ export async function dashboardRoutes(app: FastifyInstance) {
           eq(jobs.organizationId, orgId),
           instanceId ? eq(jobs.ciInstanceId, instanceId) : undefined,
           author ? eq(builds.triggeredBy, author) : undefined,
+          mineFilter,
           sql`${builds.result} IN ('FAILURE', 'UNSTABLE')`,
           gte(builds.startedAt, since),
         ),
@@ -195,7 +227,12 @@ export async function dashboardRoutes(app: FastifyInstance) {
       ? failures.filter((f) => jobMatchesTeam(f.jobFullPath, teamPatterns))
       : failures;
 
-    return { data: filtered, error: null };
+    return {
+      data: filtered,
+      mineUnavailable,
+      scope: mineUnavailable ? "all" : scope,
+      error: null,
+    };
   });
 
   // Distinct authors (triggered_by) for the org

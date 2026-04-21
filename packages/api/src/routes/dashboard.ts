@@ -260,7 +260,10 @@ export async function dashboardRoutes(app: FastifyInstance) {
           b.culprits,
           ROW_NUMBER() OVER (PARTITION BY b.job_id ORDER BY b.started_at DESC) AS rn
         FROM builds b
-        WHERE b.job_id = ANY(${qualifyingJobIds})
+        WHERE b.job_id = ANY(ARRAY[${sql.join(
+          qualifyingJobIds.map((id) => sql`${id}`),
+          sql`, `,
+        )}]::uuid[])
           AND b.organization_id = ${orgId}
       )
       SELECT * FROM ranked WHERE rn <= 3

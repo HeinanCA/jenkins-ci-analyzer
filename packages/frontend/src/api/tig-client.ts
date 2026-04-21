@@ -239,28 +239,25 @@ export const tigDashboard = {
     limit = 50,
     teamId?: string,
     author?: string,
+    scope?: "mine" | "all",
   ) => {
     const params = new URLSearchParams();
     if (instanceId) params.set("instance_id", instanceId);
     if (teamId) params.set("team_id", teamId);
     if (author) params.set("author", author);
+    if (scope) params.set("scope", scope);
     params.set("limit", String(limit));
-    return request<
-      {
-        buildId: string;
-        buildNumber: number;
-        result: string;
-        startedAt: string;
-        durationMs: number;
-        jobName: string;
-        jobFullPath: string;
-        classification: string | null;
-        confidence: number | null;
-        matches: unknown;
-        triggeredBy: string | null;
-      }[]
-    >(`/v1/dashboard/failures?${params}`);
+    return request<import("../features/failures/types").FailuresResponse>(
+      `/v1/dashboard/failures?${params}`,
+    );
   },
+  dismissFailures: (
+    buildIds: readonly string[],
+  ): Promise<{ dismissed: number }> =>
+    request<{ dismissed: number }>("/v1/failures/views", {
+      method: "POST",
+      body: JSON.stringify({ buildIds }),
+    }),
   authors: (instanceId?: string) => {
     const params = new URLSearchParams();
     if (instanceId) params.set("instance_id", instanceId);

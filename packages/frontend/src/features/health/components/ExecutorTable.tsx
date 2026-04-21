@@ -67,10 +67,24 @@ export function ExecutorTable({ instanceId }: ExecutorTableProps) {
                     Idle
                   </Text>
                 ) : (
-                  <Text size="sm" c={colors.text} truncate>
-                    {executor.jobName}
-                    {executor.buildNumber != null && ` #${executor.buildNumber}`}
-                  </Text>
+                  <>
+                    <Text size="sm" c={colors.text} truncate>
+                      {executor.jobName}
+                      {executor.buildNumber != null &&
+                        ` #${executor.buildNumber}`}
+                    </Text>
+                    {executor.triggeredBy && (
+                      <Text
+                        size="xs"
+                        c={colors.textSecondary}
+                        mt={2}
+                        style={{ fontStyle: "italic" }}
+                        truncate
+                      >
+                        {executor.triggeredBy}
+                      </Text>
+                    )}
+                  </>
                 )}
               </Box>
 
@@ -90,7 +104,9 @@ export function ExecutorTable({ instanceId }: ExecutorTableProps) {
                     size="xs"
                     color="red"
                     variant="filled"
-                    style={{ animation: "pulsci-pulse 2s ease-in-out infinite" }}
+                    style={{
+                      animation: "pulsci-pulse 2s ease-in-out infinite",
+                    }}
                   >
                     STUCK
                   </Badge>

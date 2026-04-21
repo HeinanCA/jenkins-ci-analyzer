@@ -338,6 +338,7 @@ export const tigHealth = {
         startedAt: string | null;
         durationMs: number | null;
         stuck: boolean;
+        triggeredBy: string | null;
       }[]
     >(`/v1/instances/${instanceId}/executors`),
   queue: (instanceId: string) =>

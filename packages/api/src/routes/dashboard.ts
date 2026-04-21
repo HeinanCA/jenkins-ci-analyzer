@@ -77,6 +77,13 @@ interface JenkinsComputerResponse {
         readonly fullDisplayName: string;
         readonly timestamp: number;
         readonly number: number;
+        readonly actions?: readonly {
+          readonly causes?: readonly {
+            readonly _class?: string;
+            readonly shortDescription?: string;
+            readonly userName?: string;
+          }[];
+        }[];
       } | null;
     }[];
   }[];
@@ -92,6 +99,7 @@ interface ExecutorInfo {
   readonly startedAt: string | null;
   readonly durationMs: number | null;
   readonly stuck: boolean;
+  readonly triggeredBy: string | null;
 }
 
 export async function dashboardRoutes(app: FastifyInstance) {
@@ -588,7 +596,7 @@ export async function dashboardRoutes(app: FastifyInstance) {
     );
 
     const tree =
-      "computer[displayName,idle,offline,numExecutors,executors[idle,currentExecutable[url,fullDisplayName,timestamp,number]]]";
+      "computer[displayName,idle,offline,numExecutors,executors[idle,currentExecutable[url,fullDisplayName,timestamp,number,actions[causes[_class,shortDescription,userName]]]]]";
     const url = `${instance.baseUrl.replace(/\/$/, "")}/computer/api/json?tree=${tree}`;
 
     let jenkinsData: JenkinsComputerResponse;
@@ -610,6 +618,11 @@ export async function dashboardRoutes(app: FastifyInstance) {
         const timestamp = exec?.timestamp ?? null;
         const durationMs = timestamp !== null ? now - timestamp : null;
 
+        const cause = exec?.actions?.find((a) => a.causes?.length)?.causes?.[0];
+        const triggeredBy = cause?.userName
+          ? `Started by ${cause.userName}`
+          : (cause?.shortDescription ?? null);
+
         return {
           agent: computer.displayName,
           idle: executor.idle,
@@ -621,6 +634,7 @@ export async function dashboardRoutes(app: FastifyInstance) {
             timestamp !== null ? new Date(timestamp).toISOString() : null,
           durationMs,
           stuck: durationMs !== null && durationMs > STUCK_THRESHOLD_MS,
+          triggeredBy,
         };
       }),
     );

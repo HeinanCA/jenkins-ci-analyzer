@@ -101,7 +101,12 @@ export function QueueDetail({ instanceId }: QueueDetailProps) {
             >
               <Group justify="space-between" align="flex-start" wrap="nowrap">
                 {/* Job name */}
-                <Text size="sm" c={colors.text} style={{ flex: "0 0 auto", maxWidth: "35%" }} truncate>
+                <Text
+                  size="sm"
+                  c={colors.text}
+                  style={{ flex: "0 0 auto", maxWidth: "35%" }}
+                  truncate
+                >
                   {item.jobName}
                 </Text>
 
@@ -131,7 +136,12 @@ export function QueueDetail({ instanceId }: QueueDetailProps) {
               </Group>
 
               {/* Full reason on its own line */}
-              <Text size="xs" c={colors.textTertiary} mt={2}>
+              <Text
+                size="xs"
+                c={colors.textSecondary}
+                mt={2}
+                style={{ fontStyle: "italic" }}
+              >
                 {item.reason}
               </Text>
             </Box>

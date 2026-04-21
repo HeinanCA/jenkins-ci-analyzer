@@ -423,6 +423,28 @@ export const jenkinsUsers = pgTable(
   ],
 );
 
+export const failureViews = pgTable(
+  "failure_views",
+  {
+    userId: uuid("user_id")
+      .references(() => users.id, { onDelete: "cascade" })
+      .notNull(),
+    buildId: uuid("build_id")
+      .references(() => builds.id, { onDelete: "cascade" })
+      .notNull(),
+    organizationId: uuid("organization_id")
+      .references(() => organizations.id, { onDelete: "cascade" })
+      .notNull(),
+    viewedAt: timestamp("viewed_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.userId, table.buildId] }),
+    index("failure_views_org_idx").on(table.organizationId),
+  ],
+);
+
 export const aiHealthChecks = pgTable("ai_health_checks", {
   id: uuid("id").defaultRandom().primaryKey(),
   status: text("status").notNull(),

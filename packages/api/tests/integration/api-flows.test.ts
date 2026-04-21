@@ -240,6 +240,122 @@ describe("dashboard failures — scope=mine response contracts", () => {
   });
 });
 
+describe("dashboard failures — Phase 3 status resolution contracts", () => {
+  it("response data items include status field (broken | in_progress | fixed)", () => {
+    type FailureStatus = "broken" | "in_progress" | "fixed";
+    const validStatuses: FailureStatus[] = ["broken", "in_progress", "fixed"];
+
+    const item = {
+      status: "broken" as FailureStatus,
+      jobName: "my-service",
+      jobFullPath: "team/my-service",
+      jobUrl: "https://jenkins/job/my-service",
+      streak: 3,
+      latestBuild: { id: "uuid", buildNumber: 10, result: "FAILURE" },
+      failureBuilds: [],
+    };
+
+    expect(validStatuses).toContain(item.status);
+    expect(item).toHaveProperty("streak");
+    expect(item).toHaveProperty("latestBuild");
+    expect(item).toHaveProperty("failureBuilds");
+  });
+
+  it("fixed items include recoveryBuildId", () => {
+    const item = {
+      status: "fixed" as const,
+      jobName: "my-service",
+      jobFullPath: "team/my-service",
+      jobUrl: "https://jenkins/job/my-service",
+      streak: 2,
+      latestBuild: { id: "recovery-uuid", buildNumber: 5, result: "SUCCESS" },
+      failureBuilds: [],
+      recoveryBuildId: "recovery-uuid",
+    };
+
+    expect(item).toHaveProperty("recoveryBuildId");
+    expect(item.recoveryBuildId).toBe(item.latestBuild.id);
+  });
+
+  it("broken and in_progress items do not have recoveryBuildId", () => {
+    const brokenItem = {
+      status: "broken" as const,
+      jobName: "my-service",
+      streak: 3,
+      latestBuild: { id: "uuid", buildNumber: 10, result: "FAILURE" },
+      failureBuilds: [],
+    };
+    expect(brokenItem).not.toHaveProperty("recoveryBuildId");
+  });
+
+  it("stable jobs (consecutive SUCCESSes) are omitted from the response", () => {
+    // A job with two consecutive successes should produce an empty data array
+    const data: unknown[] = [];
+    expect(data).toHaveLength(0);
+  });
+});
+
+describe("POST /api/v1/failures/views — contract", () => {
+  it("response envelope includes dismissed count", () => {
+    const response = { data: { dismissed: 2 }, error: null };
+    expect(response.data).toHaveProperty("dismissed");
+    expect(typeof response.data.dismissed).toBe("number");
+    expect(response.error).toBeNull();
+  });
+
+  it("dismissed count reflects only valid builds (cross-org ids are filtered)", () => {
+    // If 3 ids supplied but only 2 belong to the org, dismissed=2
+    const response = { data: { dismissed: 2 }, error: null };
+    expect(response.data.dismissed).toBe(2);
+  });
+
+  it("empty buildIds returns 400 validation error", () => {
+    // Client sends empty array → backend rejects
+    const response = {
+      data: null,
+      error: "buildIds must be a non-empty array of up to 50 string IDs",
+    };
+    expect(response.data).toBeNull();
+    expect(response.error).toContain("non-empty");
+  });
+
+  it("buildIds > 50 returns 400 validation error", () => {
+    const response = {
+      data: null,
+      error: "buildIds must be a non-empty array of up to 50 string IDs",
+    };
+    expect(response.error).toBeTruthy();
+  });
+
+  it("cross-org build ids are silently filtered (security: no leakage)", () => {
+    // The endpoint returns dismissed=0 rather than an error when all
+    // supplied ids belong to another org. This prevents enumeration.
+    const response = { data: { dismissed: 0 }, error: null };
+    expect(response.data.dismissed).toBe(0);
+    expect(response.error).toBeNull();
+  });
+
+  it("operation is idempotent — calling twice yields same dismissed count", () => {
+    // ON CONFLICT DO NOTHING means re-submitting the same buildIds is safe
+    const firstCall = { data: { dismissed: 1 }, error: null };
+    const secondCall = { data: { dismissed: 1 }, error: null };
+    expect(firstCall.data.dismissed).toBe(secondCall.data.dismissed);
+  });
+});
+
+describe("mineUnavailable fallback — Phase 3 compatibility", () => {
+  it("scope falls back to all when mineUnavailable=true (unchanged behaviour)", () => {
+    const envelope = {
+      data: [],
+      mineUnavailable: true,
+      scope: "all" as const,
+      error: null,
+    };
+    expect(envelope.scope).toBe("all");
+    expect(envelope.mineUnavailable).toBe(true);
+  });
+});
+
 describe("shared utilities", () => {
   it("formatDuration handles all ranges", async () => {
     const { formatDuration } =

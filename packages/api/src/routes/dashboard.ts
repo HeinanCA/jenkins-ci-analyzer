@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { eq, and, desc, sql, sum, count, gte } from "drizzle-orm";
+import { eq, and, desc, sql, sum, count, gte, inArray } from "drizzle-orm";
 import { db } from "../db/connection";
 import {
   jobs,
@@ -11,6 +11,7 @@ import {
   analysisFeedback,
   users,
   jenkinsUsers,
+  failureViews,
 } from "../db/schema";
 import { jobMatchesTeam } from "./teams";
 import { requireAuth } from "../middleware/auth";
@@ -19,6 +20,12 @@ import {
   decryptCredentials,
   type EncryptedCredentials,
 } from "../services/credential-vault";
+import {
+  resolveJobStatus,
+  type BuildRow,
+  type AnalysisRow,
+  type JobMeta,
+} from "../services/failure-status";
 
 interface RunningBuild {
   readonly jobName: string;
@@ -116,7 +123,7 @@ export async function dashboardRoutes(app: FastifyInstance) {
     };
   });
 
-  // Recent failures with analysis
+  // Recent failures with per-job status resolution (broken / in_progress / fixed)
   app.get<{
     Querystring: {
       instance_id?: string;
@@ -177,38 +184,33 @@ export async function dashboardRoutes(app: FastifyInstance) {
       }
     }
 
+    // Resolve the current user's app user id (needed for dismissal lookup)
+    const [appUser] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(and(eq(users.organizationId, orgId), eq(users.email, userEmail)))
+      .limit(1);
+
+    const appUserId = appUser?.id ?? null;
+
+    // ── Fetch per-job latest N builds using a window function CTE ────────────
+    // We collect the qualifying jobs first via a subquery on builds, then
+    // pull the 3 most recent builds per job so we can resolve status in TS.
+    //
+    // The mine filter applies to whether the job had any build involving
+    // the user in the time window (consistent with the old behaviour).
+
     const mineFilter =
       scope === "mine" && jenkinsUserIds.length > 0
         ? sql`(${builds.triggeredBy} = ANY(${jenkinsUserIds}) OR ${builds.culprits} && ${jenkinsUserIds})`
         : undefined;
 
-    const failures = await db
-      .select({
-        buildId: builds.id,
-        buildNumber: builds.buildNumber,
-        result: builds.result,
-        startedAt: builds.startedAt,
-        durationMs: builds.durationMs,
-        jobName: jobs.name,
-        jobFullPath: jobs.fullPath,
-        jobUrl: jobs.url,
-        gitSha: builds.gitSha,
-        gitRemoteUrl: builds.gitRemoteUrl,
-        analysisId: buildAnalyses.id,
-        classification: buildAnalyses.classification,
-        confidence: buildAnalyses.confidence,
-        matches: buildAnalyses.matches,
-        aiSummary: buildAnalyses.aiSummary,
-        aiRootCause: buildAnalyses.aiRootCause,
-        aiSuggestedFixes: buildAnalyses.aiSuggestedFixes,
-        logNoisePercent: buildAnalyses.logNoisePercent,
-        logTopNoise: buildAnalyses.logTopNoise,
-        triggeredBy: builds.triggeredBy,
-        culprits: builds.culprits,
-      })
+    // Step 1: find the distinct job ids that had at least one FAILURE/UNSTABLE
+    //         build in the window and pass the scope/author/instance filters.
+    const qualifyingJobsQuery = db
+      .selectDistinct({ jobId: builds.jobId })
       .from(builds)
       .innerJoin(jobs, eq(jobs.id, builds.jobId))
-      .leftJoin(buildAnalyses, eq(buildAnalyses.buildId, builds.id))
       .where(
         and(
           eq(jobs.organizationId, orgId),
@@ -219,16 +221,193 @@ export async function dashboardRoutes(app: FastifyInstance) {
           gte(builds.startedAt, since),
         ),
       )
-      .orderBy(desc(builds.startedAt))
       .limit(limit);
 
-    // Filter by team patterns if specified
-    const filtered = teamPatterns
-      ? failures.filter((f) => jobMatchesTeam(f.jobFullPath, teamPatterns))
-      : failures;
+    const qualifyingJobs = await qualifyingJobsQuery;
+    const qualifyingJobIds = qualifyingJobs.map((r) => r.jobId);
+
+    if (qualifyingJobIds.length === 0) {
+      return {
+        data: [],
+        mineUnavailable,
+        scope: mineUnavailable ? "all" : scope,
+        error: null,
+      };
+    }
+
+    // Step 2: for each qualifying job, fetch its latest 3 builds (all results
+    //         including NULL/ABORTED/SUCCESS) so we can resolve status.
+    //         We use a ROW_NUMBER() CTE to rank builds per job.
+    const rankedBuildsRaw = await db.execute(sql`
+      WITH ranked AS (
+        SELECT
+          b.id,
+          b.job_id,
+          b.organization_id,
+          b.build_number,
+          b.result,
+          b.started_at,
+          b.duration_ms,
+          b.git_sha,
+          b.git_remote_url,
+          b.triggered_by,
+          b.culprits,
+          ROW_NUMBER() OVER (PARTITION BY b.job_id ORDER BY b.started_at DESC) AS rn
+        FROM builds b
+        WHERE b.job_id = ANY(${qualifyingJobIds})
+          AND b.organization_id = ${orgId}
+      )
+      SELECT * FROM ranked WHERE rn <= 3
+      ORDER BY job_id, started_at DESC
+    `);
+
+    // Step 3: fetch job metadata for qualifying jobs
+    const jobMetaRows = await db
+      .select({
+        id: jobs.id,
+        name: jobs.name,
+        fullPath: jobs.fullPath,
+        url: jobs.url,
+      })
+      .from(jobs)
+      .where(
+        and(inArray(jobs.id, qualifyingJobIds), eq(jobs.organizationId, orgId)),
+      );
+
+    // Step 4: fetch analyses for all build ids in the result set
+    // Note: drizzle postgres-js adapter returns rows directly (no .rows property)
+    const rankedBuilds = rankedBuildsRaw as unknown as Array<{ id: string }>;
+    const allBuildIds = rankedBuilds.map((r) => r.id);
+
+    const analysisRows =
+      allBuildIds.length > 0
+        ? await db
+            .select({
+              id: buildAnalyses.id,
+              buildId: buildAnalyses.buildId,
+              classification: buildAnalyses.classification,
+              confidence: buildAnalyses.confidence,
+              matches: buildAnalyses.matches,
+              aiSummary: buildAnalyses.aiSummary,
+              aiRootCause: buildAnalyses.aiRootCause,
+              aiSuggestedFixes: buildAnalyses.aiSuggestedFixes,
+              logNoisePercent: buildAnalyses.logNoisePercent,
+              logTopNoise: buildAnalyses.logTopNoise,
+            })
+            .from(buildAnalyses)
+            .where(
+              and(
+                inArray(buildAnalyses.buildId, allBuildIds),
+                eq(buildAnalyses.organizationId, orgId),
+              ),
+            )
+        : [];
+
+    // Step 5: load dismissed build ids for this user
+    let dismissedBuildIds: Set<string> = new Set();
+    if (appUserId && allBuildIds.length > 0) {
+      const viewedRows = await db
+        .select({ buildId: failureViews.buildId })
+        .from(failureViews)
+        .where(
+          and(
+            eq(failureViews.userId, appUserId),
+            eq(failureViews.organizationId, orgId),
+            inArray(failureViews.buildId, allBuildIds),
+          ),
+        );
+      dismissedBuildIds = new Set(viewedRows.map((r) => r.buildId));
+    }
+
+    // ── Assemble lookup maps ─────────────────────────────────────────────────
+    const jobMetaMap = new Map<string, JobMeta>(
+      jobMetaRows.map((j) => [
+        j.id,
+        {
+          jobId: j.id,
+          jobName: j.name,
+          jobFullPath: j.fullPath,
+          jobUrl: j.url,
+        },
+      ]),
+    );
+
+    const analysisByBuildId = new Map<string, AnalysisRow>(
+      analysisRows.map((a) => [
+        a.buildId,
+        {
+          id: a.id,
+          buildId: a.buildId,
+          classification: a.classification,
+          confidence: a.confidence,
+          matches: a.matches,
+          aiSummary: a.aiSummary,
+          aiRootCause: a.aiRootCause,
+          aiSuggestedFixes: a.aiSuggestedFixes,
+          logNoisePercent: a.logNoisePercent,
+          logTopNoise: a.logTopNoise,
+        },
+      ]),
+    );
+
+    // ── Group ranked builds by job ───────────────────────────────────────────
+    const buildsByJobId = new Map<string, BuildRow[]>();
+    for (const raw of rankedBuilds as unknown as Array<{
+      id: string;
+      job_id: string;
+      organization_id: string;
+      build_number: number;
+      result: string | null;
+      started_at: Date | string;
+      duration_ms: number | null;
+      git_sha: string | null;
+      git_remote_url: string | null;
+      triggered_by: string | null;
+      culprits: string[] | null;
+    }>) {
+      const buildRow: BuildRow = {
+        id: raw.id,
+        jobId: raw.job_id,
+        organizationId: raw.organization_id,
+        buildNumber: raw.build_number,
+        result: raw.result,
+        startedAt:
+          raw.started_at instanceof Date
+            ? raw.started_at
+            : new Date(raw.started_at),
+        durationMs: raw.duration_ms,
+        gitSha: raw.git_sha,
+        gitRemoteUrl: raw.git_remote_url,
+        triggeredBy: raw.triggered_by,
+        culprits: raw.culprits ?? [],
+      };
+      const existing = buildsByJobId.get(raw.job_id) ?? [];
+      buildsByJobId.set(raw.job_id, [...existing, buildRow]);
+    }
+
+    // ── Resolve status per job ───────────────────────────────────────────────
+    const resolved = qualifyingJobIds
+      .map((jobId) => {
+        const meta = jobMetaMap.get(jobId);
+        if (!meta) return null;
+
+        // Apply team filter here after we have job metadata
+        if (teamPatterns && !jobMatchesTeam(meta.jobFullPath, teamPatterns)) {
+          return null;
+        }
+
+        const jobBuilds = buildsByJobId.get(jobId) ?? [];
+        return resolveJobStatus(
+          meta,
+          jobBuilds,
+          analysisByBuildId,
+          dismissedBuildIds,
+        );
+      })
+      .filter((r): r is NonNullable<typeof r> => r !== null);
 
     return {
-      data: filtered,
+      data: resolved,
       mineUnavailable,
       scope: mineUnavailable ? "all" : scope,
       error: null,
@@ -797,5 +976,70 @@ export async function dashboardRoutes(app: FastifyInstance) {
       },
       error: null,
     };
+  });
+
+  // Dismiss "Fixed" cards — mark recovery builds as viewed
+  app.post<{
+    Body: { buildIds: string[] };
+  }>("/api/v1/failures/views", async (request, reply) => {
+    const orgId = request.tigSession!.org.id;
+    const userEmail = request.tigSession!.user.email;
+    const body = request.body ?? {};
+    const rawBuildIds: unknown = body.buildIds;
+
+    // Validate: must be a non-empty array of strings, max 50
+    if (
+      !Array.isArray(rawBuildIds) ||
+      rawBuildIds.length === 0 ||
+      rawBuildIds.length > 50 ||
+      !rawBuildIds.every((id) => typeof id === "string" && id.length > 0)
+    ) {
+      return reply.status(400).send({
+        data: null,
+        error: "buildIds must be a non-empty array of up to 50 string IDs",
+      });
+    }
+
+    const buildIds = rawBuildIds as string[];
+
+    // Resolve app user
+    const [appUser] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(and(eq(users.organizationId, orgId), eq(users.email, userEmail)))
+      .limit(1);
+
+    if (!appUser) {
+      return reply.status(403).send({
+        data: null,
+        error: "User not found in organization",
+      });
+    }
+
+    // Security: verify all supplied buildIds actually belong to this org
+    // before inserting. This prevents cross-org dismissal.
+    const validBuilds = await db
+      .select({ id: builds.id })
+      .from(builds)
+      .where(
+        and(eq(builds.organizationId, orgId), inArray(builds.id, buildIds)),
+      );
+
+    const validBuildIds = validBuilds.map((b) => b.id);
+
+    if (validBuildIds.length === 0) {
+      return { data: { dismissed: 0 }, error: null };
+    }
+
+    // Idempotent upsert — ON CONFLICT DO NOTHING
+    const values = validBuildIds.map((buildId) => ({
+      userId: appUser.id,
+      buildId,
+      organizationId: orgId,
+    }));
+
+    await db.insert(failureViews).values(values).onConflictDoNothing();
+
+    return { data: { dismissed: validBuildIds.length }, error: null };
   });
 }

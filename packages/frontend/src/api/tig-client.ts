@@ -341,8 +341,8 @@ export const tigHealth = {
       }[]
     >(`/v1/instances/${instanceId}/executors`),
   queue: (instanceId: string) =>
-    request<
-      {
+    request<{
+      items: {
         id: number;
         jobName: string;
         jobUrl: string;
@@ -350,8 +350,10 @@ export const tigHealth = {
         waitingMs: number;
         stuck: boolean;
         blocked: boolean;
-      }[]
-    >(`/v1/instances/${instanceId}/queue`),
+      }[];
+      scanCount: number;
+      scanReasons: string[];
+    }>(`/v1/instances/${instanceId}/queue`),
 };
 
 // Current user

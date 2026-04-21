@@ -687,23 +687,29 @@ export async function dashboardRoutes(app: FastifyInstance) {
       "jenkins.triggers.SCMTriggerCause",
     ]);
 
-    const now = Date.now();
-    const queueItems: QueueItem[] = jenkinsData.items
-      .filter((item) => {
-        // Drop branch-indexing / folder-scan queue entries
-        if (item._class && SCAN_QUEUE_CLASSES.has(item._class)) return false;
-        if (item.task._class && SCAN_TASK_CLASSES.has(item.task._class))
-          return false;
-        const why = item.why ?? "";
-        if (
-          why.startsWith("Branch indexing") ||
-          why.startsWith("Branch event") ||
-          why.includes("Scan") ||
-          why.includes("indexing")
-        )
-          return false;
+    const isScanItem = (item: (typeof jenkinsData.items)[number]): boolean => {
+      if (item._class && SCAN_QUEUE_CLASSES.has(item._class)) return true;
+      if (item.task._class && SCAN_TASK_CLASSES.has(item.task._class))
         return true;
-      })
+      const why = item.why ?? "";
+      if (
+        why.startsWith("Branch indexing") ||
+        why.startsWith("Branch event") ||
+        why.toLowerCase().includes("scan") ||
+        why.toLowerCase().includes("indexing")
+      )
+        return true;
+      return false;
+    };
+
+    const now = Date.now();
+    const scanItems = jenkinsData.items.filter(isScanItem);
+    const scanReasons = [
+      ...new Set(scanItems.map((i) => i.why ?? "Branch indexing scan")),
+    ];
+
+    const queueItems: QueueItem[] = jenkinsData.items
+      .filter((item) => !isScanItem(item))
       .map((item) => ({
         id: item.id,
         jobName: item.task.name,
@@ -714,7 +720,10 @@ export async function dashboardRoutes(app: FastifyInstance) {
         blocked: item.blocked,
       }));
 
-    return { data: queueItems, error: null };
+    return {
+      data: { items: queueItems, scanCount: scanItems.length, scanReasons },
+      error: null,
+    };
   });
 
   // Running builds — from DB (sees nested folders, no live Jenkins call)

@@ -24,6 +24,7 @@ import { colors } from "../../theme/mantine-theme";
 
 const BASE_NAV_ITEMS: readonly NavItem[] = [
   { label: "Failures", path: "/", icon: "⚡" },
+  { label: "Health", path: "/health", icon: "◉" },
   { label: "Trends", path: "/trends", icon: "◆" },
 ];
 

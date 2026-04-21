@@ -40,7 +40,12 @@ interface RunningBuild {
 interface JenkinsQueueDetailResponse {
   readonly items: readonly {
     readonly id: number;
-    readonly task: { readonly name: string; readonly url: string };
+    readonly _class?: string;
+    readonly task: {
+      readonly _class?: string;
+      readonly name: string;
+      readonly url: string;
+    };
     readonly why: string | null;
     readonly inQueueSince: number;
     readonly stuck: boolean;
@@ -657,7 +662,7 @@ export async function dashboardRoutes(app: FastifyInstance) {
     );
 
     const tree =
-      "items[id,task[name,url],why,inQueueSince,stuck,blocked,buildable]";
+      "items[id,_class,task[_class,name,url],why,inQueueSince,stuck,blocked,buildable]";
     const url = `${instance.baseUrl.replace(/\/$/, "")}/queue/api/json?tree=${tree}`;
 
     let jenkinsData: JenkinsQueueDetailResponse;
@@ -673,16 +678,41 @@ export async function dashboardRoutes(app: FastifyInstance) {
       });
     }
 
+    const SCAN_TASK_CLASSES = new Set([
+      "jenkins.branch.MultiBranchProject",
+      "org.jenkinsci.plugins.workflow.multibranch.WorkflowMultiBranchProject",
+    ]);
+    const SCAN_QUEUE_CLASSES = new Set([
+      "jenkins.branch.BranchIndexingCause",
+      "jenkins.triggers.SCMTriggerCause",
+    ]);
+
     const now = Date.now();
-    const queueItems: QueueItem[] = jenkinsData.items.map((item) => ({
-      id: item.id,
-      jobName: item.task.name,
-      jobUrl: item.task.url,
-      reason: item.why ?? "Unknown",
-      waitingMs: now - item.inQueueSince,
-      stuck: item.stuck,
-      blocked: item.blocked,
-    }));
+    const queueItems: QueueItem[] = jenkinsData.items
+      .filter((item) => {
+        // Drop branch-indexing / folder-scan queue entries
+        if (item._class && SCAN_QUEUE_CLASSES.has(item._class)) return false;
+        if (item.task._class && SCAN_TASK_CLASSES.has(item.task._class))
+          return false;
+        const why = item.why ?? "";
+        if (
+          why.startsWith("Branch indexing") ||
+          why.startsWith("Branch event") ||
+          why.includes("Scan") ||
+          why.includes("indexing")
+        )
+          return false;
+        return true;
+      })
+      .map((item) => ({
+        id: item.id,
+        jobName: item.task.name,
+        jobUrl: item.task.url,
+        reason: item.why ?? "Unknown",
+        waitingMs: now - item.inQueueSince,
+        stuck: item.stuck,
+        blocked: item.blocked,
+      }));
 
     return { data: queueItems, error: null };
   });

@@ -29,6 +29,13 @@
       "when": 1745366400000,
       "tag": "0003_failure_views",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1777370578792,
+      "tag": "0004_magenta_vampiro",
+      "breakpoints": true
     }
   ]
 }

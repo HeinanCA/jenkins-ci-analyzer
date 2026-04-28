@@ -41,6 +41,7 @@ export interface AnalysisRow {
   readonly aiSuggestedFixes: unknown;
   readonly logNoisePercent: number | null;
   readonly logTopNoise: string | null;
+  readonly priority: string | null;
 }
 
 export interface JobMeta {
@@ -61,6 +62,7 @@ export interface StatusResolution {
   readonly recoveryBuildId?: string;
   readonly logNoisePercent?: number | null;
   readonly logTopNoise?: string | null;
+  readonly priority?: string | null;
 }
 
 const FAILURE_RESULTS = new Set(["FAILURE", "UNSTABLE"]);
@@ -139,6 +141,7 @@ export function resolveJobStatus(
       failureBuilds,
       logNoisePercent: analysis?.logNoisePercent ?? null,
       logTopNoise: analysis?.logTopNoise ?? null,
+      priority: analysis?.priority ?? null,
     };
   }
 
@@ -181,6 +184,7 @@ export function resolveJobStatus(
       recoveryBuildId: latestMeaningful.id,
       logNoisePercent: analysis?.logNoisePercent ?? null,
       logTopNoise: analysis?.logTopNoise ?? null,
+      priority: analysis?.priority ?? null,
     };
   }
 
@@ -205,6 +209,7 @@ export function resolveJobStatus(
       failureBuilds,
       logNoisePercent: analysis?.logNoisePercent ?? null,
       logTopNoise: analysis?.logTopNoise ?? null,
+      priority: analysis?.priority ?? null,
     };
   }
 

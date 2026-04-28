@@ -1,5 +1,6 @@
 import {
   pgTable,
+  pgEnum,
   uuid,
   text,
   boolean,
@@ -12,6 +13,14 @@ import {
   index,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
+
+export const failurePriorityEnum = pgEnum("failure_priority", [
+  "BLOCKER",
+  "ACTIONABLE",
+  "FLAKY",
+  "INFRA",
+  "UNKNOWN",
+]);
 
 // ─── better-auth managed tables ─────────────────────────────────
 
@@ -245,6 +254,7 @@ export const buildAnalyses = pgTable("build_analyses", {
   aiCostUsd: real("ai_cost_usd"),
   logNoisePercent: integer("log_noise_percent"),
   logTopNoise: text("log_top_noise"),
+  priority: failurePriorityEnum("priority").notNull().default("UNKNOWN"),
   analyzedAt: timestamp("analyzed_at", { withTimezone: true })
     .defaultNow()
     .notNull(),

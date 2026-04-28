@@ -48,3 +48,11 @@ export {
   MAX_LOG_CHARS_FOR_AI,
   BUILD_STATUS_COLORS,
 } from "./constants";
+
+export type { FailurePriority } from "./types/priority";
+export {
+  FAILURE_PRIORITY_VALUES,
+  FailurePrioritySchema,
+} from "./types/priority";
+
+export { PRIORITY_ORDER, PRIORITY_LABEL } from "./constants/priority";

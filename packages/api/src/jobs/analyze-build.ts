@@ -210,6 +210,7 @@ export const analyzeBuild: Task = async (payload, helpers) => {
           stackTrace: aiResult.stackTrace,
         }
       : null,
+    priority: aiResult?.priority ?? "UNKNOWN",
     aiSkippedReason: aiResult ? null : "disabled",
     aiInputTokens: aiUsage?.inputTokens ?? null,
     aiOutputTokens: aiUsage?.outputTokens ?? null,

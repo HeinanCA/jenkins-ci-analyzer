@@ -315,6 +315,7 @@ export async function dashboardRoutes(app: FastifyInstance) {
               aiSuggestedFixes: buildAnalyses.aiSuggestedFixes,
               logNoisePercent: buildAnalyses.logNoisePercent,
               logTopNoise: buildAnalyses.logTopNoise,
+              priority: buildAnalyses.priority,
             })
             .from(buildAnalyses)
             .where(
@@ -368,6 +369,7 @@ export async function dashboardRoutes(app: FastifyInstance) {
           aiSuggestedFixes: a.aiSuggestedFixes,
           logNoisePercent: a.logNoisePercent,
           logTopNoise: a.logTopNoise,
+          priority: a.priority,
         },
       ]),
     );

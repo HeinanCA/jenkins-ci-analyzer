@@ -1,8 +1,10 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { AnthropicBedrock } from "@anthropic-ai/bedrock-sdk";
+import { z } from "zod";
 import { filterLogForAnalysis } from "./log-filter";
 import { deduplicateLog } from "./log-dedup";
 import { extractErrorContext } from "./log-extract";
+import { FailurePrioritySchema } from "@tig/shared";
 
 // Haiku pricing per 1M tokens
 const INPUT_COST_PER_MTOK = 0.8;
@@ -24,8 +26,16 @@ Respond in JSON with this exact structure:
   "exceptionType": "The exception class name, if applicable. null otherwise",
   "stackTrace": ["Top 3 relevant app-code stack frames, excluding framework internals"],
   "suggestedFixes": ["Step 1", "Step 2", "Step 3"],
-  "confidence": 0.0 to 1.0
+  "confidence": 0.0 to 1.0,
+  "priority": "BLOCKER" | "ACTIONABLE" | "FLAKY" | "INFRA" | "UNKNOWN"
 }
+
+Priority definitions:
+- BLOCKER: build infrastructure broken, no one can ship (compile fail, test runner crashed, deploy step failed)
+- ACTIONABLE: real failure with clear fix path (test assertion, type error, missing config)
+- FLAKY: failure pattern indicates intermittent/timing/network issue (random timeouts, race conditions, external service flakiness)
+- INFRA: agent offline, queue stuck, Jenkins-side issue (not a code problem — developer cannot fix it)
+- UNKNOWN: cannot determine confidently from the log
 
 Rules:
 - Be SPECIFIC. Never say "a test failed" — say WHICH test, WHAT assertion, WHAT values.
@@ -41,19 +51,22 @@ Rules:
 - Post-build errors (JaCoCo, Surefire report, coverage publish, artifact upload) are SYMPTOMS, not causes. Always trace back to the original failure.
 - Respond ONLY with JSON. No markdown, no explanation outside the JSON.`;
 
-export interface AiAnalysisResult {
-  readonly summary: string;
-  readonly classification: "code" | "infrastructure";
-  readonly rootCause: string;
-  readonly failingTest: string | null;
-  readonly assertion: string | null;
-  readonly filePath: string | null;
-  readonly lineNumber: number | null;
-  readonly exceptionType: string | null;
-  readonly stackTrace: readonly string[];
-  readonly suggestedFixes: readonly string[];
-  readonly confidence: number;
-}
+export const AiAnalysisResultSchema = z.object({
+  summary: z.string(),
+  classification: z.enum(["code", "infrastructure"]),
+  rootCause: z.string(),
+  failingTest: z.string().nullable(),
+  assertion: z.string().nullable(),
+  filePath: z.string().nullable(),
+  lineNumber: z.number().nullable(),
+  exceptionType: z.string().nullable(),
+  stackTrace: z.array(z.string()),
+  suggestedFixes: z.array(z.string()),
+  confidence: z.number(),
+  priority: FailurePrioritySchema,
+});
+
+export type AiAnalysisResult = z.infer<typeof AiAnalysisResultSchema>;
 
 export interface AiUsage {
   readonly inputTokens: number;
@@ -202,7 +215,7 @@ export async function analyzeWithAi(
       .replace(/```\n?/g, "")
       .trim();
 
-    const parsed = JSON.parse(jsonStr) as AiAnalysisResult;
+    const parsed = AiAnalysisResultSchema.parse(JSON.parse(jsonStr));
     return {
       result: parsed,
       usage: { inputTokens, outputTokens, costUsd },

@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import type { ReactNode } from 'react';
 import {
   Stack,
   Text,
@@ -9,7 +10,6 @@ import {
   Group,
   SegmentedControl,
   Box,
-  Chip,
 } from '@mantine/core';
 import { tigDashboard, tigTeams } from '../../api/tig-client';
 import { useAuthStore } from '../../store/auth-store';
@@ -116,6 +116,58 @@ const PRIORITY_EMPTY_STATES: Record<
     subline: 'Try clearing the priority filter.',
   },
 };
+
+// ─── Priority chip button ────────────────────────────────────
+interface PriorityChipButtonProps {
+  readonly selected: boolean;
+  readonly onClick: () => void;
+  readonly bg: string;
+  readonly fg: string;
+  readonly border: string;
+  readonly dim?: boolean;
+  readonly icon?: ReactNode;
+  readonly children: ReactNode;
+}
+
+function PriorityChipButton({
+  selected,
+  onClick,
+  bg,
+  fg,
+  border,
+  dim = false,
+  icon,
+  children,
+}: PriorityChipButtonProps) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={selected}
+      onClick={onClick}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 6,
+        padding: '5px 12px',
+        borderRadius: 999,
+        border: `1px solid ${border}`,
+        backgroundColor: selected ? bg : 'transparent',
+        color: fg,
+        fontSize: 12,
+        fontWeight: 600,
+        lineHeight: 1.2,
+        cursor: 'pointer',
+        opacity: dim ? 0.55 : 1,
+        transition: 'background-color 0.15s, opacity 0.15s',
+        fontFamily: 'inherit',
+      }}
+    >
+      {icon}
+      <span>{children}</span>
+    </button>
+  );
+}
 
 export function FailuresPage() {
   const instanceId = useAuthStore((s) => s.instanceId);
@@ -367,59 +419,41 @@ export function FailuresPage() {
             >
               Priority:
             </Text>
-            <Chip.Group
-              value={priorityFilter}
-              onChange={(v) => setPriorityFilter(v as typeof priorityFilter)}
-              multiple={false}
+            <Group
+              gap={6}
+              role="radiogroup"
               aria-label="Priority filter"
             >
-              <Group gap={6}>
-                <Chip
-                  value="all"
-                  size="sm"
-                  variant="filled"
-                  styles={{
-                    root: {
-                      backgroundColor:
-                        priorityFilter === 'all' ? colors.surface : 'transparent',
-                      border: `1px solid ${colors.border}`,
-                    },
-                    label: { color: colors.textSecondary },
-                  }}
-                >
-                  All ({totalClassFilteredBroken})
-                </Chip>
-                {VISIBLE_PRIORITIES.map((p) => {
-                  const config = PRIORITY_DISPLAY[p];
-                  const Icon = config.icon;
-                  const count = priorityCounts[p];
-                  return (
-                    <Chip
-                      key={p}
-                      value={p}
-                      size="sm"
-                      variant="filled"
-                      disabled={count === 0}
-                      tabIndex={count === 0 ? -1 : undefined}
-                      styles={{
-                        root: {
-                          backgroundColor:
-                            priorityFilter === p ? config.bg : 'transparent',
-                          border: `1px solid ${config.border}`,
-                          opacity: count === 0 ? 0.5 : 1,
-                        },
-                        label: { color: config.fg },
-                      }}
-                    >
-                      <Group gap={4} wrap="nowrap">
-                        {Icon && <Icon size={11} stroke={2} />}
-                        {config.label} ({count})
-                      </Group>
-                    </Chip>
-                  );
-                })}
-              </Group>
-            </Chip.Group>
+              <PriorityChipButton
+                selected={priorityFilter === 'all'}
+                onClick={() => setPriorityFilter('all')}
+                bg={colors.surface}
+                fg={colors.textSecondary}
+                border={colors.border}
+              >
+                All ({totalClassFilteredBroken})
+              </PriorityChipButton>
+              {VISIBLE_PRIORITIES.map((p) => {
+                const config = PRIORITY_DISPLAY[p];
+                const Icon = config.icon;
+                const count = priorityCounts[p] ?? 0;
+                const isSelected = priorityFilter === p;
+                return (
+                  <PriorityChipButton
+                    key={p}
+                    selected={isSelected}
+                    onClick={() => setPriorityFilter(p)}
+                    bg={config.bg}
+                    fg={config.fg}
+                    border={config.border}
+                    dim={count === 0}
+                    icon={Icon ? <Icon size={12} stroke={2} /> : null}
+                  >
+                    {config.label} ({count})
+                  </PriorityChipButton>
+                );
+              })}
+            </Group>
           </Group>
 
         {/* mineUnavailable inline notice */}

@@ -36,6 +36,25 @@ function plural(n: number, word: string): string {
 export function SectionHeader({ variant, count }: SectionHeaderProps) {
   const cfg = VARIANT_CONFIG[variant];
 
+  // When the failing/fixed/building section has zero items, mute the chrome
+  // so the page doesn't read as alarming when there's nothing wrong.
+  const isEmpty = count === 0;
+  const accentColor = isEmpty ? colors.textMuted : cfg.color;
+  const bgColor = isEmpty
+    ? 'transparent'
+    : variant === 'fixed'
+      ? 'rgba(74, 222, 128, 0.06)'
+      : variant === 'building'
+        ? 'rgba(245, 103, 64, 0.06)'
+        : 'rgba(248, 113, 113, 0.06)';
+  const borderColor = isEmpty
+    ? colors.border
+    : variant === 'fixed'
+      ? 'rgba(74, 222, 128, 0.15)'
+      : variant === 'building'
+        ? 'rgba(245, 103, 64, 0.15)'
+        : 'rgba(248, 113, 113, 0.15)';
+
   return (
     <Group
       gap={8}
@@ -43,29 +62,18 @@ export function SectionHeader({ variant, count }: SectionHeaderProps) {
       px={12}
       style={{
         borderRadius: 6,
-        backgroundColor:
-          variant === 'fixed'
-            ? 'rgba(74, 222, 128, 0.06)'
-            : variant === 'building'
-              ? 'rgba(245, 103, 64, 0.06)'
-              : 'rgba(248, 113, 113, 0.06)',
-        border: `1px solid ${
-          variant === 'fixed'
-            ? 'rgba(74, 222, 128, 0.15)'
-            : variant === 'building'
-              ? 'rgba(245, 103, 64, 0.15)'
-              : 'rgba(248, 113, 113, 0.15)'
-        }`,
+        backgroundColor: bgColor,
+        border: `1px solid ${borderColor}`,
       }}
     >
       {variant === 'building' ? (
-        <Loader size={12} color={cfg.color} />
+        <Loader size={12} color={accentColor} />
       ) : (
-        <Text size="sm" c={cfg.color} fw={700}>
+        <Text size="sm" c={accentColor} fw={700}>
           {cfg.icon}
         </Text>
       )}
-      <Text size="sm" fw={600} c={cfg.color}>
+      <Text size="sm" fw={600} c={accentColor}>
         {cfg.label} — {plural(count, 'job')}
       </Text>
     </Group>

@@ -296,6 +296,11 @@ export function FailuresPage() {
   }
 
   const summary = summaryQuery.data;
+  // Hero count must match what's visible on the page. We use allBroken (after
+  // dismissals + scope filter, before class+priority filters) so the number
+  // reconciles with the cards rendered below. The summary endpoint returns a
+  // wider Jenkins-color count that includes failures older than the window.
+  const visibleFailureCount = allBroken.length;
 
   // ─── Mine + empty + unavailable ───────────────────────────
   const showMinePositiveEmpty =
@@ -307,45 +312,35 @@ export function FailuresPage() {
 
   return (
     <Stack gap={36}>
-      {/* Hero header */}
+      {/* Hero header — reflects what's visible on the page */}
       <Stack gap={4}>
-        {summary ? (
-          <>
-            <Group gap={12} align="baseline">
-              <Text
-                c={summary.failing > 0 ? colors.failure : colors.success}
-                fw={800}
-                style={{
-                  ...metricStyle,
-                  fontSize: 48,
-                  lineHeight: 1,
-                  textShadow:
-                    summary.failing > 0
-                      ? '0 0 40px rgba(248, 113, 113, 0.3), 0 0 80px rgba(248, 113, 113, 0.1)'
-                      : undefined,
-                  animation: 'countUp 0.5s ease',
-                }}
-              >
-                {summary.failing}
-              </Text>
-              <Text size="lg" c={colors.textSecondary} fw={500}>
-                {summary.failing === 1 ? 'failure' : 'failures'}
-              </Text>
-            </Group>
-            <Text size="sm" c={colors.textTertiary}>
-              across {summary.total} monitored{' '}
-              {summary.total === 1 ? 'job' : 'jobs'}
-            </Text>
-          </>
-        ) : (
+        <Group gap={12} align="baseline">
           <Text
-            c={colors.textSecondary}
+            c={visibleFailureCount > 0 ? colors.failure : colors.success}
             fw={800}
-            style={{ ...metricStyle, fontSize: 40, lineHeight: 1 }}
+            style={{
+              ...metricStyle,
+              fontSize: 48,
+              lineHeight: 1,
+              textShadow:
+                visibleFailureCount > 0
+                  ? '0 0 40px rgba(248, 113, 113, 0.3), 0 0 80px rgba(248, 113, 113, 0.1)'
+                  : undefined,
+              animation: 'countUp 0.5s ease',
+            }}
           >
-            Failures
+            {visibleFailureCount}
           </Text>
-        )}
+          <Text size="lg" c={colors.textSecondary} fw={500}>
+            {visibleFailureCount === 1 ? 'failure' : 'failures'}
+          </Text>
+        </Group>
+        {summary ? (
+          <Text size="sm" c={colors.textTertiary}>
+            across {summary.total} monitored{' '}
+            {summary.total === 1 ? 'job' : 'jobs'}
+          </Text>
+        ) : null}
       </Stack>
 
       {/* Filters row */}

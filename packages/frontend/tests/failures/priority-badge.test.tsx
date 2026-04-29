@@ -9,11 +9,10 @@ function renderBadge(ui: React.ReactElement) {
 }
 
 describe('PriorityBadge', () => {
-  it('renders null for UNKNOWN priority — no badge text in DOM', () => {
+  it('renders muted Unknown ghost pill for UNKNOWN priority', () => {
     const { container } = renderBadge(<PriorityBadge priority="UNKNOWN" />);
-    // MantineProvider injects a style tag, but no badge element should be present
-    expect(container.querySelector('.mantine-Badge-root')).toBeNull();
-    expect(screen.queryByText('Unknown')).not.toBeInTheDocument();
+    expect(container.querySelector('.mantine-Badge-root')).toBeTruthy();
+    expect(screen.getByText('Unknown')).toBeInTheDocument();
   });
 
   it('renders Blocker label for BLOCKER priority', () => {

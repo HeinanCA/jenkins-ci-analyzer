@@ -122,7 +122,7 @@ describe("FailuresPage — mineUnavailable", () => {
     render(<FailuresPage />, { wrapper: createWrapper() });
 
     // Wait for data to load — the positive empty state appears when scope=mine and no failures
-    await screen.findByText(/No failures in the last 3 days — nice work/i);
+    await screen.findByText(/No failures in the last 14 days — nice work/i);
 
     // Mine and Everyone radio inputs must be present
     expect(screen.getByRole("radio", { name: "Mine" })).toBeDefined();
@@ -226,6 +226,6 @@ describe("FailuresPage — section rendering", () => {
   it("shows the positive empty state for mine scope with no failures", async () => {
     render(<FailuresPage />, { wrapper: createWrapper() });
 
-    await screen.findByText(/No failures in the last 3 days — nice work/i);
+    await screen.findByText(/No failures in the last 14 days — nice work/i);
   });
 });

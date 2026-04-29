@@ -240,6 +240,7 @@ export const tigDashboard = {
     teamId?: string,
     author?: string,
     scope?: "mine" | "all",
+    days = 14,
   ) => {
     const params = new URLSearchParams();
     if (instanceId) params.set("instance_id", instanceId);
@@ -247,6 +248,7 @@ export const tigDashboard = {
     if (author) params.set("author", author);
     if (scope) params.set("scope", scope);
     params.set("limit", String(limit));
+    params.set("days", String(days));
     return request<import("../features/failures/types").FailuresResponse>(
       `/v1/dashboard/failures?${params}`,
     );

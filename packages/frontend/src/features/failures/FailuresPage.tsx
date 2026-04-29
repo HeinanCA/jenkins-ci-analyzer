@@ -228,11 +228,8 @@ export function FailuresPage() {
   // Total broken after class filter (for "All" chip)
   const totalClassFilteredBroken = classFilteredBroken.length;
 
-  // Whether any priority counts are non-zero (hide priority row if no analyzed failures)
-  const hasAnyPriorityCounts = VISIBLE_PRIORITIES.some((p) => priorityCounts[p] > 0);
-
-  const showSectionHeaders =
-    fixedGroups.length > 0 || buildingGroups.length > 0;
+  // Show FAILING section header always so the page surface stays consistent
+  const showSectionHeaders = true;
 
   // ─── Early states ──────────────────────────────────────────
   if (isLoading) return <LoadingState />;
@@ -303,28 +300,26 @@ export function FailuresPage() {
       <Box>
         <Group gap="md" pb={16} mb={8} justify="space-between">
           <Group gap="md">
-            {teamsData && teamsData.length > 0 && (
-              <Select
-                size="sm"
-                placeholder="All teams"
-                clearable
-                value={teamId}
-                onChange={setTeamId}
-                data={teamsData.map((t) => ({ value: t.id, label: t.name }))}
-                styles={FILTER_INPUT_STYLES}
-              />
-            )}
-            {authorsData && authorsData.length > 0 && (
-              <Select
-                size="sm"
-                placeholder="All authors"
-                clearable
-                value={authorFilter}
-                onChange={setAuthorFilter}
-                data={authorsData.map((a) => ({ value: a, label: a }))}
-                styles={FILTER_INPUT_STYLES}
-              />
-            )}
+            <Select
+              size="sm"
+              placeholder="All teams"
+              clearable
+              disabled={!teamsData || teamsData.length === 0}
+              value={teamId}
+              onChange={setTeamId}
+              data={(teamsData ?? []).map((t) => ({ value: t.id, label: t.name }))}
+              styles={FILTER_INPUT_STYLES}
+            />
+            <Select
+              size="sm"
+              placeholder="All authors"
+              clearable
+              disabled={!authorsData || authorsData.length === 0}
+              value={authorFilter}
+              onChange={setAuthorFilter}
+              data={(authorsData ?? []).map((a) => ({ value: a, label: a }))}
+              styles={FILTER_INPUT_STYLES}
+            />
             <SegmentedControl
               size="sm"
               value={classFilter}
@@ -363,9 +358,8 @@ export function FailuresPage() {
           )}
         </Group>
 
-        {/* Priority filter row — shown only when there are any analyzed failures */}
-        {hasAnyPriorityCounts && (
-          <Group gap="xs" pt={4} pb={12}>
+        {/* Priority filter row — always shown */}
+        <Group gap="xs" pt={4} pb={12}>
             <Text
               size="xs"
               c={colors.textMuted}
@@ -427,7 +421,6 @@ export function FailuresPage() {
               </Group>
             </Chip.Group>
           </Group>
-        )}
 
         {/* mineUnavailable inline notice */}
         {mineUnavailable && (
@@ -490,7 +483,7 @@ export function FailuresPage() {
         {showMinePositiveEmpty && (
           <Card radius="md" style={cardStyle} p={40}>
             <Text size="md" c={colors.success} ta="center">
-              ✓ No failures in the last 3 days — nice work
+              ✓ No failures in the last 14 days — nice work
             </Text>
           </Card>
         )}
@@ -518,8 +511,8 @@ export function FailuresPage() {
             <Card radius="md" style={cardStyle} p={40}>
               <Text size="md" c={colors.success} ta="center">
                 {classFilter === 'all'
-                  ? 'No failures in the last 3 days.'
-                  : `No ${classFilter} failures in the last 3 days.`}
+                  ? 'No failures in the last 14 days.'
+                  : `No ${classFilter} failures in the last 14 days.`}
               </Text>
             </Card>
           )}

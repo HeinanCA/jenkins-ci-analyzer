@@ -13,21 +13,16 @@ interface PriorityBadgeProps {
 // ─── Component ────────────────────────────────────────────────
 /**
  * Renders a priority badge for a failure group.
- * Returns null for UNKNOWN priority — no empty space is rendered.
+ * UNKNOWN renders as a muted ghost pill so every card has visual signal.
  * BLOCKER pulses via CSS class; prefers-reduced-motion suppresses the animation.
  */
 export function PriorityBadge({
   priority,
   size = 'sm',
   showLabel = true,
-}: PriorityBadgeProps): React.ReactElement | null {
-  if (priority === 'UNKNOWN') return null;
-
+}: PriorityBadgeProps): React.ReactElement {
   const config = PRIORITY_DISPLAY[priority];
   const Icon = config.icon;
-
-  if (!Icon) return null;
-
   const iconPx = size === 'xs' ? 10 : size === 'md' ? 14 : 12;
 
   return (
@@ -35,7 +30,7 @@ export function PriorityBadge({
       size={size}
       variant="filled"
       className={priority === 'BLOCKER' ? styles.blocker : undefined}
-      leftSection={<Icon size={iconPx} stroke={2} />}
+      leftSection={Icon ? <Icon size={iconPx} stroke={2} /> : undefined}
       aria-label={showLabel ? undefined : `Priority: ${config.label}`}
       styles={{
         root: {

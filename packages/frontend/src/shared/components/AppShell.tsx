@@ -1,16 +1,25 @@
 import {
   AppShell as MantineAppShell,
   Group,
-  Title,
   Text,
   Button,
   Box,
   Stack,
   Tooltip,
   Badge,
+  Divider,
 } from "@mantine/core";
+import {
+  IconAlertTriangle,
+  IconActivity,
+  IconChartBar,
+  IconUsers,
+  IconLogout,
+  IconWaveSine,
+} from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
+import type { ComponentType } from "react";
 import { useHover } from "../hooks/use-hover";
 import { useAuthStore } from "../../store/auth-store";
 import {
@@ -21,27 +30,85 @@ import {
   tigMe,
 } from "../../api/tig-client";
 import { colors } from "../../theme/mantine-theme";
+import "../styles/animations.css";
+
+// ─── Nav config ─────────────────────────────────────────────
+interface NavItem {
+  readonly label: string;
+  readonly path: string;
+  readonly icon: ComponentType<{ size?: number; stroke?: number; color?: string }>;
+}
 
 const BASE_NAV_ITEMS: readonly NavItem[] = [
-  { label: "Failures", path: "/", icon: "⚡" },
-  { label: "Health", path: "/health", icon: "◉" },
-  { label: "Trends", path: "/trends", icon: "◆" },
+  { label: "Failures", path: "/", icon: IconAlertTriangle },
+  { label: "Health", path: "/health", icon: IconActivity },
+  { label: "Trends", path: "/trends", icon: IconChartBar },
 ];
 
 const ADMIN_NAV_ITEM: NavItem = {
   label: "Users",
   path: "/admin/users",
-  icon: "☺",
+  icon: IconUsers,
 };
 
-interface NavItem {
-  readonly label: string;
-  readonly path: string;
-  readonly icon: string;
+// ─── Brand mark ─────────────────────────────────────────────
+function BrandMark() {
+  return (
+    <Group gap={10} pl={4}>
+      <Box
+        style={{
+          width: 30,
+          height: 30,
+          borderRadius: 8,
+          background: colors.accentGradient,
+          boxShadow: `0 0 14px ${colors.accentGlow}`,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexShrink: 0,
+        }}
+      >
+        <IconWaveSine size={16} stroke={2.5} color="#FFFFFF" />
+      </Box>
+      <Stack gap={0}>
+        <Text fw={800} size="md" c={colors.text} style={{ letterSpacing: "-0.02em", lineHeight: 1.1 }}>
+          PulsCI
+        </Text>
+        <Text size="xs" c={colors.textMuted} style={{ lineHeight: 1.1 }}>
+          by That Infrastructure Guy
+        </Text>
+      </Stack>
+    </Group>
+  );
 }
 
-import "../styles/animations.css";
+// ─── Failure count badge for sidebar ───────────────────────
+function FailureCount() {
+  const instanceId = useAuthStore((s) => s.instanceId);
+  const { data } = useQuery({
+    queryKey: ["sidebar-failure-count", instanceId],
+    queryFn: () => tigDashboard.failures(instanceId ?? undefined, 50),
+    refetchInterval: 30_000,
+  });
+  const groups = data?.data ?? [];
+  const broken = groups.filter((g) => g.status === "broken");
+  if (broken.length === 0) return null;
+  return (
+    <Badge
+      size="sm"
+      variant="filled"
+      style={{
+        backgroundColor: colors.priorityBlocker,
+        color: colors.priorityBlockerFg,
+        border: `1px solid ${colors.priorityBlockerBorder}`,
+      }}
+    >
+      {broken.length}
+    </Badge>
+  );
+}
 
+// ─── Health pill (footer) ──────────────────────────────────
 function HealthIndicator() {
   const instanceId = useAuthStore((s) => s.instanceId);
   const { data: h } = useQuery({
@@ -83,36 +150,13 @@ function HealthIndicator() {
   );
 }
 
-function FailureCount() {
-  const instanceId = useAuthStore((s) => s.instanceId);
-  const { data } = useQuery({
-    queryKey: ["all-failures", instanceId],
-    queryFn: () => tigDashboard.failures(instanceId ?? undefined, 50),
-    refetchInterval: 30_000,
-  });
-  const jobPaths = new Set(
-    (data ?? []).map((f: Record<string, unknown>) => f.jobFullPath),
-  );
-  if (jobPaths.size === 0) return null;
-  return (
-    <Badge
-      size="xs"
-      color="red"
-      variant="filled"
-      style={{ animation: "pulsci-pulse 2s infinite" }}
-    >
-      {jobPaths.size}
-    </Badge>
-  );
-}
-
-function AiStatusBadge() {
+// ─── AI cost / status (footer) ─────────────────────────────
+function AiStatusLine() {
   const { data: health } = useQuery({
     queryKey: ["ai-health"],
     queryFn: () => tigAiHealth.get(),
     refetchInterval: 30_000,
   });
-
   const { data: cost } = useQuery({
     queryKey: ["ai-cost"],
     queryFn: () => tigAiCost.get(),
@@ -123,43 +167,22 @@ function AiStatusBadge() {
 
   if (health.status === "unhealthy") {
     return (
-      <Tooltip
-        label={health.message ?? "AI service is not reachable."}
-        w={280}
-        multiline
-      >
-        <Text
-          size="xs"
-          c={colors.failure}
-          fw={600}
-          style={{ cursor: "default" }}
-        >
-          ⚠ AI offline
+      <Tooltip label={health.message ?? "AI service is not reachable."} w={280} multiline>
+        <Text size="xs" c={colors.failure} fw={600} style={{ cursor: "default" }}>
+          AI offline
         </Text>
       </Tooltip>
     );
   }
-
   if (health.status === "unknown") {
     return (
-      <Tooltip
-        label={health.message ?? "AI health check not running."}
-        w={280}
-        multiline
-      >
-        <Text
-          size="xs"
-          c={colors.warning}
-          fw={600}
-          style={{ cursor: "default" }}
-        >
-          ⚠ AI unknown
+      <Tooltip label={health.message ?? "AI health check not running."} w={280} multiline>
+        <Text size="xs" c={colors.warning} fw={600} style={{ cursor: "default" }}>
+          AI unknown
         </Text>
       </Tooltip>
     );
   }
-
-  // Healthy — show cost
   if (!cost || cost.totalCostUsd === 0) return null;
   return (
     <Tooltip
@@ -178,6 +201,7 @@ function AiStatusBadge() {
   );
 }
 
+// ─── Layout ────────────────────────────────────────────────
 export function AppShellLayout() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -198,113 +222,108 @@ export function AppShellLayout() {
 
   return (
     <MantineAppShell
-      navbar={{ width: 220, breakpoint: "sm" }}
-      header={{ height: 56 }}
+      navbar={{ width: 240, breakpoint: "sm" }}
       padding="xl"
       styles={{
         main: {
           background: colors.bgGradient,
           minHeight: "100vh",
         },
-        header: {
-          backgroundColor: "#1F1F1F",
-          borderBottom: `1px solid ${colors.border}`,
-        },
         navbar: {
-          backgroundColor: "#1F1F1F",
+          backgroundColor: colors.surfaceLight,
           borderRight: `1px solid ${colors.border}`,
         },
       }}
     >
-      <MantineAppShell.Header>
-        <Group h="100%" px="md" justify="space-between">
-          <Group gap="xs">
-            <Title
-              order={4}
-              style={{
-                background: colors.accentGradient,
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-              }}
-            >
-              PulsCI
-            </Title>
-            <Text size="xs" c={colors.textMuted}>
-              by That Infrastructure Guy
-            </Text>
-          </Group>
-          <HealthIndicator />
-          <Group gap="sm">
-            <AiStatusBadge />
-            {user && (
-              <Text size="xs" c={colors.textTertiary}>
-                {user.name}
-              </Text>
-            )}
-            <Button
-              size="xs"
-              variant="subtle"
-              color="gray"
-              onClick={() => {
-                logout();
-                navigate("/login");
-              }}
-            >
-              Sign Out
-            </Button>
-          </Group>
-        </Group>
-      </MantineAppShell.Header>
+      <MantineAppShell.Navbar p={0}>
+        <Stack gap={0} h="100%" style={{ paddingTop: 20, paddingBottom: 16 }}>
+          {/* Brand */}
+          <Box pl={16} pb={20}>
+            <BrandMark />
+          </Box>
+          <Divider color={colors.border} mx={12} mb={12} />
 
-      <MantineAppShell.Navbar p="xs" pt="md">
-        <Stack gap={4}>
-          {navItems.map((item) => {
-            const isActive = location.pathname === item.path;
-            const isHovered = hoveredPath === item.path && !isActive;
-            return (
-              <Box
-                key={item.path}
-                onClick={() => navigate(item.path)}
-                {...hoverBind(item.path)}
-                style={{
-                  cursor: "pointer",
-                  padding: "10px 14px",
-                  borderRadius: 8,
-                  backgroundColor: isActive
-                    ? colors.accentMuted
-                    : isHovered
-                      ? "rgba(245, 103, 64, 0.06)"
-                      : "transparent",
-                  border: isActive
-                    ? `1px solid ${colors.borderHover}`
-                    : isHovered
-                      ? `1px solid ${colors.border}`
-                      : "1px solid transparent",
-                  transition: "all 0.15s ease",
-                }}
-              >
-                <Group justify="space-between">
-                  <Group gap={8}>
-                    <Text
-                      size="sm"
-                      c={isActive ? colors.accent : colors.textMuted}
-                      style={{ width: 16, textAlign: "center" }}
-                    >
-                      {item.icon}
-                    </Text>
-                    <Text
-                      size="sm"
-                      fw={isActive ? 600 : 400}
-                      c={isActive ? colors.text : colors.textTertiary}
-                    >
-                      {item.label}
-                    </Text>
+          {/* Nav */}
+          <Stack gap={2} px={10} style={{ flex: 1 }}>
+            {navItems.map((item) => {
+              const isActive =
+                item.path === "/"
+                  ? location.pathname === "/" ||
+                    location.pathname === "/failures"
+                  : location.pathname === item.path;
+              const isHovered = hoveredPath === item.path && !isActive;
+              const Icon = item.icon;
+              return (
+                <Box
+                  key={item.path}
+                  onClick={() => navigate(item.path)}
+                  {...hoverBind(item.path)}
+                  style={{
+                    cursor: "pointer",
+                    padding: "10px 14px",
+                    borderRadius: 8,
+                    backgroundColor: isActive
+                      ? colors.accentMuted
+                      : isHovered
+                        ? "rgba(245, 103, 64, 0.06)"
+                        : "transparent",
+                    borderLeft: isActive
+                      ? `2px solid ${colors.accent}`
+                      : "2px solid transparent",
+                    transition: "all 0.15s ease",
+                  }}
+                >
+                  <Group justify="space-between" wrap="nowrap">
+                    <Group gap={10} wrap="nowrap">
+                      <Icon
+                        size={16}
+                        stroke={2}
+                        color={isActive ? colors.accent : colors.textTertiary}
+                      />
+                      <Text
+                        size="sm"
+                        fw={isActive ? 600 : 500}
+                        c={isActive ? colors.text : colors.textTertiary}
+                      >
+                        {item.label}
+                      </Text>
+                    </Group>
+                    {item.path === "/" && <FailureCount />}
                   </Group>
-                  {item.path === "/" && <FailureCount />}
-                </Group>
-              </Box>
-            );
-          })}
+                </Box>
+              );
+            })}
+          </Stack>
+
+          {/* Footer */}
+          <Stack gap={8} px={16}>
+            <Divider color={colors.border} />
+            <Group gap="xs" justify="space-between">
+              <HealthIndicator />
+              <AiStatusLine />
+            </Group>
+            <Group gap="xs" justify="space-between" wrap="nowrap">
+              {user && (
+                <Text size="xs" c={colors.textSecondary} truncate>
+                  {user.name}
+                </Text>
+              )}
+              <Tooltip label="Sign out">
+                <Button
+                  size="compact-xs"
+                  variant="subtle"
+                  color="gray"
+                  onClick={() => {
+                    logout();
+                    navigate("/login");
+                  }}
+                  px={6}
+                >
+                  <IconLogout size={14} stroke={2} />
+                </Button>
+              </Tooltip>
+            </Group>
+          </Stack>
         </Stack>
       </MantineAppShell.Navbar>
 

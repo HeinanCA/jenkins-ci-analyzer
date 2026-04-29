@@ -32,6 +32,23 @@ export const colors = {
 
   gradientMid: "#2B2B2B",
   gradientEnd: "#252525",
+
+  // ─── Priority badge tokens ────────────────────────────────────
+  priorityBlocker: '#3D0A0A',
+  priorityBlockerFg: '#FCA5A5',
+  priorityBlockerBorder: '#7F1D1D',
+
+  priorityActionable: '#0F2A42',
+  priorityActionableFg: '#93C5FD',
+  priorityActionableBorder: '#1E3A5F',
+
+  priorityFlaky: '#3B2A00',
+  priorityFlakyFg: '#FDE68A',
+  priorityFlakyBorder: '#78450A',
+
+  priorityInfra: '#1E1E1E',
+  priorityInfraFg: '#9CA3AF',
+  priorityInfraBorder: '#374151',
 } as const;
 
 export const HEALTH_COLORS: Record<string, string> = {

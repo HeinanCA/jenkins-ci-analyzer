@@ -8,9 +8,13 @@ import {
   Stack,
   Text,
 } from '@mantine/core';
+import { useMediaQuery } from '@mantine/hooks';
 import { colors } from '../../../theme/mantine-theme';
 import { FailureDetail } from './FailureDetail';
+import { PriorityBadge } from './PriorityBadge';
+import { PRIORITY_DISPLAY } from '../constants/priority-display';
 import type { JobFailureGroup, FailureEntry } from '../types';
+import styles from './BrokenJobCard.module.css';
 
 interface BrokenJobCardProps {
   readonly group: JobFailureGroup;
@@ -43,6 +47,7 @@ function buildRowToEntry(b: JobFailureGroup['latestBuild']): FailureEntry {
     aiSuggestedFixes: b.aiSuggestedFixes,
     logNoisePercent: b.logNoisePercent,
     logTopNoise: b.logTopNoise,
+    priority: b.priority,
   };
 }
 
@@ -53,6 +58,14 @@ export function BrokenJobCard({ group, isHovered, onHover }: BrokenJobCardProps)
   const aiDisplay = aiRootCause || aiSummary;
   const hasAi = !!aiSummary || !!aiRootCause;
   const isInProgress = group.status === 'in_progress';
+  const isMobile = useMediaQuery('(max-width: 575px)', false);
+
+  // Priority-tinted left border; in_progress keeps ember accent
+  // Read from latestBuild (typed BuildRow) not FailureEntry (index signature)
+  const priority = group.latestBuild.priority ?? 'UNKNOWN';
+  const borderLeftColor = isInProgress
+    ? colors.accent
+    : (PRIORITY_DISPLAY[priority]?.border ?? colors.border);
 
   return (
     <Accordion.Item
@@ -61,13 +74,7 @@ export function BrokenJobCard({ group, isHovered, onHover }: BrokenJobCardProps)
       style={{
         transition: 'background-color 0.15s, border-color 0.15s, transform 0.15s',
         backgroundColor: isHovered ? colors.surfaceHover : undefined,
-        borderLeft: `3px solid ${
-          isInProgress
-            ? colors.accent
-            : f.classification === 'infrastructure'
-              ? colors.failure
-              : colors.accent
-        }`,
+        borderLeft: `3px solid ${borderLeftColor}`,
         transform: isHovered ? 'translateX(2px)' : undefined,
         animation: 'fadeUp 0.3s ease both',
       }}
@@ -75,6 +82,13 @@ export function BrokenJobCard({ group, isHovered, onHover }: BrokenJobCardProps)
       <Accordion.Control>
         <Stack gap={6} style={{ minWidth: 0 }}>
           <Group gap={10} wrap="nowrap">
+            {!isInProgress && (
+              <PriorityBadge
+                priority={priority}
+                size={isMobile ? 'xs' : 'sm'}
+                showLabel={!isMobile}
+              />
+            )}
             <Text size="md" fw={600} c={colors.text} truncate>
               {group.jobName}
             </Text>
@@ -110,9 +124,7 @@ export function BrokenJobCard({ group, isHovered, onHover }: BrokenJobCardProps)
               <Text
                 size="sm"
                 c={colors.textSecondary}
-                style={{
-                  animation: 'pulse 1.5s ease-in-out infinite',
-                }}
+                className={styles.runningPulse}
               >
                 Build #{group.latestBuild.buildNumber} running…
               </Text>
@@ -134,6 +146,7 @@ export function BrokenJobCard({ group, isHovered, onHover }: BrokenJobCardProps)
       <Accordion.Panel>
         <Stack gap="md">
           <Group gap="lg">
+            <PriorityBadge priority={priority} size="sm" />
             {f.classification && (
               <Badge
                 size="sm"

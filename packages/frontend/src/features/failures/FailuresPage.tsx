@@ -9,6 +9,7 @@ import {
   Group,
   SegmentedControl,
   Box,
+  Chip,
 } from '@mantine/core';
 import { tigDashboard, tigTeams } from '../../api/tig-client';
 import { useAuthStore } from '../../store/auth-store';
@@ -22,7 +23,10 @@ import { FixedJobCard } from './components/FixedJobCard';
 import { SectionHeader } from './components/SectionHeader';
 import { useFailuresScope } from './hooks/use-failures-scope';
 import { useDismissalQueue } from './hooks/use-dismissal-queue';
+import { usePriorityFilter } from './hooks/usePriorityFilter';
+import { PRIORITY_DISPLAY } from './constants/priority-display';
 import type { JobFailureGroup } from './types';
+import { PRIORITY_ORDER, type FailurePriority } from '@tig/shared';
 
 // ─── Filter types ─────────────────────────────────────────────
 type ClassFilter = 'all' | 'code' | 'infrastructure';
@@ -49,6 +53,9 @@ const ACCORDION_STYLES = {
   panel: { padding: '0 20px 20px' },
 };
 
+// ─── Priority chips (visible priorities only — UNKNOWN omitted) ─
+const VISIBLE_PRIORITIES = ['BLOCKER', 'ACTIONABLE', 'FLAKY', 'INFRA'] as const;
+
 // ─── Helpers ──────────────────────────────────────────────────
 function applyClassFilter(
   groups: readonly JobFailureGroup[],
@@ -67,6 +74,48 @@ function countByClass(
   if (!filter || filter === 'all') return groups.length;
   return groups.filter((g) => g.latestBuild.classification === filter).length;
 }
+
+// Sort failed builds: BLOCKER → ACTIONABLE → FLAKY → INFRA → UNKNOWN (highest priority weight first)
+function sortByPriority(
+  groups: readonly JobFailureGroup[],
+): readonly JobFailureGroup[] {
+  return [...groups].sort((a, b) => {
+    const weightA = PRIORITY_ORDER[a.latestBuild.priority ?? 'UNKNOWN'] ?? 0;
+    const weightB = PRIORITY_ORDER[b.latestBuild.priority ?? 'UNKNOWN'] ?? 0;
+    return (
+      weightB - weightA ||
+      (b.latestBuild.startedAt ?? '').localeCompare(a.latestBuild.startedAt ?? '')
+    ); // descending: higher weight = higher priority; newest first when tied
+  });
+}
+
+// ─── Empty state copy per priority filter ────────────────────
+const PRIORITY_EMPTY_STATES: Record<
+  FailurePriority,
+  { headline: string; subline: string }
+> = {
+  BLOCKER: {
+    headline: 'No blockers right now.',
+    subline: 'All builds are either passing or have a clear fix path.',
+  },
+  ACTIONABLE: {
+    headline: 'Nothing actionable in the current scope.',
+    subline: 'Try switching to Everyone or clearing team and author filters.',
+  },
+  FLAKY: {
+    headline: 'No flaky failures detected.',
+    subline:
+      'Flakiness is identified when a build passes on retry. If you expected one here, it may have been marked Actionable.',
+  },
+  INFRA: {
+    headline: 'No infrastructure failures.',
+    subline: 'Jenkins agents and executors are behaving normally.',
+  },
+  UNKNOWN: {
+    headline: 'No matches',
+    subline: 'Try clearing the priority filter.',
+  },
+};
 
 export function FailuresPage() {
   const instanceId = useAuthStore((s) => s.instanceId);
@@ -136,7 +185,9 @@ export function FailuresPage() {
     () => visibleGroups.filter((g) => g.status === 'in_progress'),
     [visibleGroups],
   );
-  const brokenGroups = useMemo(
+
+  // Broken groups after class filter (for priority counts and filter chip counts)
+  const classFilteredBroken = useMemo(
     () =>
       applyClassFilter(
         visibleGroups.filter((g) => g.status === 'broken'),
@@ -145,7 +196,17 @@ export function FailuresPage() {
     [visibleGroups, classFilter],
   );
 
-  // For classification filter counts use only broken group
+  // Wire usePriorityFilter against class-filtered broken groups
+  const { priorityFilter, setPriorityFilter, priorityCounts, filteredGroups: priorityFilteredBroken } =
+    usePriorityFilter(classFilteredBroken);
+
+  // Final broken groups: priority-filtered, then sorted by priority weight desc
+  const brokenGroups = useMemo(
+    () => sortByPriority(priorityFilteredBroken),
+    [priorityFilteredBroken],
+  );
+
+  // For classification filter counts use only broken groups (pre-class-filter)
   const allBroken = useMemo(
     () => visibleGroups.filter((g) => g.status === 'broken'),
     [visibleGroups],
@@ -163,6 +224,12 @@ export function FailuresPage() {
     () => countByClass(allBroken, 'infrastructure'),
     [allBroken],
   );
+
+  // Total broken after class filter (for "All" chip)
+  const totalClassFilteredBroken = classFilteredBroken.length;
+
+  // Whether any priority counts are non-zero (hide priority row if no analyzed failures)
+  const hasAnyPriorityCounts = VISIBLE_PRIORITIES.some((p) => priorityCounts[p] > 0);
 
   const showSectionHeaders =
     fixedGroups.length > 0 || buildingGroups.length > 0;
@@ -186,7 +253,8 @@ export function FailuresPage() {
     scope === 'mine' &&
     !mineUnavailable &&
     brokenGroups.length === 0 &&
-    buildingGroups.length === 0;
+    buildingGroups.length === 0 &&
+    priorityFilter === 'all';
 
   return (
     <Stack gap={36}>
@@ -295,6 +363,72 @@ export function FailuresPage() {
           )}
         </Group>
 
+        {/* Priority filter row — shown only when there are any analyzed failures */}
+        {hasAnyPriorityCounts && (
+          <Group gap="xs" pt={4} pb={12}>
+            <Text
+              size="xs"
+              c={colors.textMuted}
+              style={{ lineHeight: '28px' }}
+            >
+              Priority:
+            </Text>
+            <Chip.Group
+              value={priorityFilter}
+              onChange={(v) => setPriorityFilter(v as typeof priorityFilter)}
+              multiple={false}
+              aria-label="Priority filter"
+            >
+              <Group gap={6}>
+                <Chip
+                  value="all"
+                  size="sm"
+                  variant="filled"
+                  styles={{
+                    root: {
+                      backgroundColor:
+                        priorityFilter === 'all' ? colors.surface : 'transparent',
+                      border: `1px solid ${colors.border}`,
+                    },
+                    label: { color: colors.textSecondary },
+                  }}
+                >
+                  All ({totalClassFilteredBroken})
+                </Chip>
+                {VISIBLE_PRIORITIES.map((p) => {
+                  const config = PRIORITY_DISPLAY[p];
+                  const Icon = config.icon;
+                  const count = priorityCounts[p];
+                  return (
+                    <Chip
+                      key={p}
+                      value={p}
+                      size="sm"
+                      variant="filled"
+                      disabled={count === 0}
+                      tabIndex={count === 0 ? -1 : undefined}
+                      styles={{
+                        root: {
+                          backgroundColor:
+                            priorityFilter === p ? config.bg : 'transparent',
+                          border: `1px solid ${config.border}`,
+                          opacity: count === 0 ? 0.5 : 1,
+                        },
+                        label: { color: config.fg },
+                      }}
+                    >
+                      <Group gap={4} wrap="nowrap">
+                        {Icon && <Icon size={11} stroke={2} />}
+                        {config.label} ({count})
+                      </Group>
+                    </Chip>
+                  );
+                })}
+              </Group>
+            </Chip.Group>
+          </Group>
+        )}
+
         {/* mineUnavailable inline notice */}
         {mineUnavailable && (
           <Text size="sm" c={colors.textMuted} mb={8}>
@@ -361,16 +495,34 @@ export function FailuresPage() {
           </Card>
         )}
 
+        {/* Priority-specific empty state */}
+        {!showMinePositiveEmpty &&
+          brokenGroups.length === 0 &&
+          priorityFilter !== 'all' && (
+            <Card radius="md" style={cardStyle} p={40}>
+              <Stack gap={4} align="center">
+                <Text size="md" c={colors.textTertiary} ta="center">
+                  {PRIORITY_EMPTY_STATES[priorityFilter].headline}
+                </Text>
+                <Text size="sm" c={colors.textMuted} ta="center">
+                  {PRIORITY_EMPTY_STATES[priorityFilter].subline}
+                </Text>
+              </Stack>
+            </Card>
+          )}
+
         {/* Standard empty state for non-Mine or with class filter */}
-        {!showMinePositiveEmpty && brokenGroups.length === 0 && (
-          <Card radius="md" style={cardStyle} p={40}>
-            <Text size="md" c={colors.success} ta="center">
-              {classFilter === 'all'
-                ? 'No failures in the last 3 days.'
-                : `No ${classFilter} failures in the last 3 days.`}
-            </Text>
-          </Card>
-        )}
+        {!showMinePositiveEmpty &&
+          brokenGroups.length === 0 &&
+          priorityFilter === 'all' && (
+            <Card radius="md" style={cardStyle} p={40}>
+              <Text size="md" c={colors.success} ta="center">
+                {classFilter === 'all'
+                  ? 'No failures in the last 3 days.'
+                  : `No ${classFilter} failures in the last 3 days.`}
+              </Text>
+            </Card>
+          )}
 
         {brokenGroups.length > 0 && (
           <Accordion variant="separated" radius="md" styles={ACCORDION_STYLES}>

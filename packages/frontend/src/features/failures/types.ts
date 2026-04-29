@@ -1,3 +1,5 @@
+import type { FailurePriority } from '@tig/shared';
+
 export type FailureStatus = 'broken' | 'in_progress' | 'fixed'
 
 // ─── BuildRow ────────────────────────────────────────────────
@@ -22,6 +24,7 @@ export interface BuildRow {
   readonly logNoisePercent: number | null;
   readonly logTopNoise: string | null;
   readonly triggeredBy: string | null;
+  readonly priority: FailurePriority | null;
 }
 
 // ─── JobFailureGroup (new API shape) ─────────────────────────

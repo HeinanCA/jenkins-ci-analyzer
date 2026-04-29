@@ -11,12 +11,13 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@tig/shared": "workspace:*",
+    "@emotion/react": "^11.14.0",
     "@mantine/core": "^8.3.18",
     "@mantine/form": "^8.3.18",
     "@mantine/hooks": "^8.3.18",
-    "@emotion/react": "^11.14.0",
+    "@tabler/icons-react": "^3.41.1",
     "@tanstack/react-query": "^5.91.0",
+    "@tig/shared": "workspace:*",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-router-dom": "^7.13.1",
@@ -25,11 +26,11 @@
     "zustand": "^5.0.12"
   },
   "devDependencies": {
-    "@vitejs/plugin-react": "^6.0.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
     "jsdom": "^29.0.0",
     "typescript": "~5.9.3",
     "vite": "^8.0.1",

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-const STORAGE_KEY = 'pulsci_failures_scope';
+const STORAGE_KEY = 'pulsci_failures_scope_v2';
 const VALID_SCOPES = new Set(['mine', 'all']);
 
 function readStoredScope(): 'mine' | 'all' {
@@ -12,7 +12,7 @@ function readStoredScope(): 'mine' | 'all' {
   } catch {
     // localStorage may be unavailable (SSR, private mode restrictions)
   }
-  return 'mine';
+  return 'all';
 }
 
 function writeScope(scope: 'mine' | 'all'): void {

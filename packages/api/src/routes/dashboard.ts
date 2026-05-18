@@ -247,9 +247,12 @@ export async function dashboardRoutes(app: FastifyInstance) {
 
     if (qualifyingJobIds.length === 0) {
       return {
-        data: [],
-        mineUnavailable,
-        scope: mineUnavailable ? "all" : scope,
+        data: {
+          data: [],
+          mineUnavailable,
+          scope: mineUnavailable ? "all" : scope,
+          error: null,
+        },
         error: null,
       };
     }
@@ -431,9 +434,12 @@ export async function dashboardRoutes(app: FastifyInstance) {
       .filter((r): r is NonNullable<typeof r> => r !== null);
 
     return {
-      data: resolved,
-      mineUnavailable,
-      scope: mineUnavailable ? "all" : scope,
+      data: {
+        data: resolved,
+        mineUnavailable,
+        scope: mineUnavailable ? "all" : scope,
+        error: null,
+      },
       error: null,
     };
   });

@@ -413,6 +413,24 @@ export async function dashboardRoutes(app: FastifyInstance) {
     }
 
     // ── Resolve status per job ───────────────────────────────────────────────
+    const enrichBuild = (b: BuildRow) => {
+      const a = analysisByBuildId.get(b.id);
+      return {
+        ...b,
+        buildId: b.id,
+        analysisId: a?.id ?? null,
+        classification: a?.classification ?? null,
+        confidence: a?.confidence ?? null,
+        matches: a?.matches ?? null,
+        aiSummary: a?.aiSummary ?? null,
+        aiRootCause: a?.aiRootCause ?? null,
+        aiSuggestedFixes: a?.aiSuggestedFixes ?? null,
+        logNoisePercent: a?.logNoisePercent ?? null,
+        logTopNoise: a?.logTopNoise ?? null,
+        priority: a?.priority ?? null,
+      };
+    };
+
     const resolved = qualifyingJobIds
       .map((jobId) => {
         const meta = jobMetaMap.get(jobId);
@@ -424,12 +442,24 @@ export async function dashboardRoutes(app: FastifyInstance) {
         }
 
         const jobBuilds = buildsByJobId.get(jobId) ?? [];
-        return resolveJobStatus(
+        const r = resolveJobStatus(
           meta,
           jobBuilds,
           analysisByBuildId,
           dismissedBuildIds,
         );
+        if (!r) return null;
+
+        return {
+          ...r,
+          latestBuild: {
+            ...enrichBuild(r.latestBuild),
+            jobName: meta.jobName,
+            jobFullPath: meta.jobFullPath,
+            jobUrl: meta.jobUrl,
+          },
+          failureBuilds: r.failureBuilds.map(enrichBuild),
+        };
       })
       .filter((r): r is NonNullable<typeof r> => r !== null);
 

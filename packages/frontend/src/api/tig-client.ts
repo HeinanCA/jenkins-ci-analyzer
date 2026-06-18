@@ -38,11 +38,26 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     );
   }
 
-  if (response.headers.get("content-type")?.includes("text/plain")) {
+  const contentType = response.headers.get("content-type");
+
+  if (contentType?.includes("text/plain")) {
     return response.text() as unknown as T;
   }
 
-  const json = (await response.json()) as TigResponse<T>;
+  // A 2xx that isn't JSON means something upstream answered for us — most
+  // often an nginx HTML error page (502/503) when the api is unreachable.
+  // Fail clean instead of letting response.json() throw a raw
+  // `Unexpected token '<'` SyntaxError into React Query.
+  if (!contentType?.includes("application/json")) {
+    throw new TigApiError("Server unavailable", response.status);
+  }
+
+  let json: TigResponse<T>;
+  try {
+    json = (await response.json()) as TigResponse<T>;
+  } catch {
+    throw new TigApiError("Server unavailable", response.status);
+  }
   return json.data;
 }
 

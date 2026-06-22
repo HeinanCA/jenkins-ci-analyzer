@@ -21,7 +21,10 @@ CMD ["pnpm", "--filter", "@tig/api", "dev"]
 
 # Worker runtime
 FROM api-build AS worker
-CMD ["pnpm", "--filter", "@tig/api", "worker"]
+# Prod: run once via tsx (no file-watcher). `tsx watch` keeps a watcher + restart
+# machinery alive and leaked heap over weeks → V8 OOM. Compiled `node dist` is not
+# an option: ESM + bundler moduleResolution emits extensionless imports node can't load.
+CMD ["pnpm", "--filter", "@tig/api", "worker:prod"]
 
 # Build frontend
 FROM shared-build AS frontend-build

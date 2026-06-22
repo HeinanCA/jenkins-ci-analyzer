@@ -64,6 +64,7 @@ services:
       DATABASE_URL: "postgres://tig:${POSTGRES_PASSWORD}@postgres:5432/tig"
       TIG_ENCRYPTION_KEY: "${TIG_ENCRYPTION_KEY}"
       NODE_ENV: "production"
+      NODE_OPTIONS: "--max-old-space-size=768"
     depends_on:
       postgres:
         condition: service_healthy
@@ -75,7 +76,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512M
+          memory: 1G
 
   frontend:
     build:

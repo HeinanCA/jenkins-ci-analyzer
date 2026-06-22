@@ -40,6 +40,7 @@ services:
       BETTER_AUTH_URL: "http://localhost:3000"
       NODE_ENV: "production"
       PORT: "3000"
+      NODE_OPTIONS: "--max-old-space-size=512"
     depends_on:
       postgres:
         condition: service_healthy
@@ -51,7 +52,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512M
+          memory: 768M
 
   worker:
     build:

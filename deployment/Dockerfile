@@ -17,7 +17,8 @@ COPY packages/api packages/api
 
 # API runtime
 FROM api-build AS api
-CMD ["pnpm", "--filter", "@tig/api", "dev"]
+# Prod: run once via tsx (no file-watcher) — same rationale as the worker target below.
+CMD ["pnpm", "--filter", "@tig/api", "serve"]
 
 # Worker runtime
 FROM api-build AS worker
